@@ -1,21 +1,18 @@
 'use client';
 
-import ChatInterface from '@/components/ChatInterface';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function OnboardPage() {
-  return (
-    <div className="py-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-extrabold text-white">Expert AI Onboarding</h1>
-          <p className="text-xs text-[#A0A0A0]">Describe your skills, bio, or services — NEXUS will draft & publish your profile.</p>
-        </div>
-      </div>
+  const router = useRouter();
 
-      <ChatInterface
-        mode="expert"
-        placeholder="Describe your background, skills, hourly rate, or digital products..."
-      />
+  useEffect(() => {
+    router.replace('/nexus');
+  }, [router]);
+
+  return (
+    <div className="min-h-screen bg-[#0B1320] flex items-center justify-center text-[#00C49F]">
+      Redirecting to NEXUS Agent Canvas...
     </div>
   );
 }

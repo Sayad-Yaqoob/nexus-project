@@ -5,10 +5,12 @@ pydantic-settings
 groq
 sentence-transformers
 faiss-cpu
-firebase-admin
 python-dotenv
 aiosqlite
 SQLAlchemy
 PyJWT
 httpx
 python-multipart
+langgraph
+pytest
+pytest-asyncio

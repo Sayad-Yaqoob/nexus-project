@@ -4,6 +4,31 @@ export interface User {
   full_name: string;
   role: 'expert' | 'client' | 'admin';
   public_handle: string;
+  currency?: string;
+}
+
+export interface AgentMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+  intent?: string;
+  suggested_actions?: string[];
+}
+
+export interface AgentChatResponse {
+  response: string;
+  session_id: string;
+  intent: string;
+  role: string;
+  suggested_actions: string[];
+  conversation_history: { role: string; content: string }[];
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
 }
 
 export interface OfferingDraft {
@@ -32,24 +57,12 @@ export interface PreviewCard {
   validation_error?: string;
 }
 
-export interface RequirementBrief {
-  problem: string;
-  category: string;
-  goals: string[];
-  constraints: string[];
-  expertise_needed: string[];
-  urgency: string;
-  missing_information?: string[];
-  clarification_questions?: string[];
-  confidence_score: number;
-}
-
 export interface MatchResult {
   expert_id: number;
   full_name: string;
   professional_headline: string;
   category: string;
-  match_score: number; // 0 to 100
+  match_score: number;
   reasoning: string;
   rank: number;
   top_offering?: OfferingDraft;

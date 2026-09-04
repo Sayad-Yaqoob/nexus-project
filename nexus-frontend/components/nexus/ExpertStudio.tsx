@@ -7,8 +7,8 @@ import { useAuth } from '@/components/layout/AuthContext';
 import { apiUrl } from '@/lib/api';
 
 export const ExpertStudio: React.FC = () => {
-  const { userContext } = useAuth();
-  const greeting = userContext?.personalized_greeting || "Welcome to NEXUS Expert Studio!";
+  const { user } = useAuth();
+  const greeting = user ? `Welcome back to NEXUS, ${user.full_name}!` : "Welcome to NEXUS Expert Studio!";
 
   const [activeTab, setActiveTab] = useState<'profile' | 'offering'>('profile');
 

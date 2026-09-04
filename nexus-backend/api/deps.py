@@ -17,25 +17,38 @@ async def get_current_user(
     authorization: Optional[str] = Header(None),
     data_adapter: DataAdapter = Depends(get_data_adapter)
 ) -> User:
-    """Extract current user from Authorization header or return fallback user."""
+    """Extract current authenticated user from Bearer JWT token."""
     if not authorization or not authorization.startswith("Bearer "):
-        # Fallback user for dev / unauthenticated requests
-        user = await data_adapter.get_user("1")
-        if user:
-            return user
-        return User(id="1", email="sayad@mindgigs.com", full_name="Sayad Yaqoob", role="expert", public_handle="sayad")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid Authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     token = authorization.split(" ")[1]
     
-    # Check Firebase Auth token or JWT token
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id = str(payload.get("sub", payload.get("uid", "1")))
+        user_id = str(payload.get("sub", payload.get("uid", "")))
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
     except jwt.PyJWTError:
-        user_id = "1"
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     user = await data_adapter.get_user(user_id)
-    if user:
-        return user
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    return User(id=user_id, email="user@mindgigs.com", full_name="MindGigs User", role="client", public_handle="user")
+    return user

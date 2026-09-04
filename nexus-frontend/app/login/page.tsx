@@ -2,211 +2,117 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { loginWithGoogle, loginWithEmail, registerWithEmail } from '@/lib/firebase';
 import { useAuth } from '@/components/layout/AuthContext';
-import { Sparkles, Mail, Lock, LogIn, UserPlus } from 'lucide-react';
+import { Sparkles, UserCheck, Briefcase, Zap, ArrowRight, AlertCircle } from 'lucide-react';
 
 export default function LoginPage() {
-  const [isRegister, setIsRegister] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState<'expert' | 'client'>('expert');
+  const [loadingRole, setLoadingRole] = useState<'expert' | 'client' | 'random' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   
   const router = useRouter();
-  const { setDemoUser } = useAuth();
+  const { loginAsMimic } = useAuth();
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleMimicLogin = async (role?: 'expert' | 'client', modeKey: 'expert' | 'client' | 'random' = 'random') => {
     setError(null);
-    setLoading(true);
-
+    setLoadingRole(modeKey);
     try {
-      if (isRegister) {
-        await registerWithEmail(email, password);
-      } else {
-        await loginWithEmail(email, password);
-      }
+      await loginAsMimic(role);
       router.push('/nexus');
     } catch (err: any) {
-      console.warn("Firebase Auth fallback to local session:", err);
-      // Demo session fallback if Firebase API key is unconfigured
-      setDemoUser({
-        id: "1",
-        email: email || "sayad@mindgigs.com",
-        full_name: fullName || (email.split('@')[0] || "Sayad Yaqoob"),
-        role: role,
-        public_handle: email.split('@')[0] || "sayad"
-      });
-      router.push('/nexus');
+      console.error('Mimic login error:', err);
+      setError(err.message || 'Authentication failed');
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleAuth = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      await loginWithGoogle();
-      router.push('/nexus');
-    } catch (err: any) {
-      console.warn("Google Sign In fallback to demo user:", err);
-      setDemoUser({
-        id: "1",
-        email: "google.user@mindgigs.com",
-        full_name: "Google Member",
-        role: "expert",
-        public_handle: "google_member"
-      });
-      router.push('/nexus');
-    } finally {
-      setLoading(false);
+      setLoadingRole(null);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-4 select-none">
-      {/* Background Glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#00FF88]/10 rounded-full blur-3xl pointer-events-none"></div>
-
-      <div className="w-full max-w-md bg-[#141414] border border-[#262626] rounded-2xl p-8 shadow-2xl relative z-10">
+    <div className="min-h-screen bg-[#0B1320] flex flex-col items-center justify-center p-6 text-slate-100 select-none">
+      <div className="w-full max-w-lg bg-[#112233] border border-slate-700/60 rounded-2xl p-8 shadow-2xl relative z-10">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#00FF88] text-black font-black text-xl mb-3 shadow-[0_0_20px_rgba(0,255,136,0.4)]">
-            M
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#00C49F] text-slate-950 font-black text-2xl mb-4 shadow-lg shadow-[#00C49F]/20">
+            N
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-wide">
-            {isRegister ? 'Create MindGigs Account' : 'Welcome Back to MindGigs'}
+          <h1 className="text-3xl font-bold text-white tracking-tight">
+            Welcome to NEXUS
           </h1>
-          <p className="text-xs text-[#A0A0A0] mt-1 flex items-center justify-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-[#00FF88]" />
-            NEXUS Agentic AI Marketplace
+          <p className="text-sm text-slate-400 mt-2 flex items-center justify-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-[#00C49F]" />
+            Agentic Sales & Growth Marketplace
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-xs">
-            {error}
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-300 text-sm flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
-        {/* Google Sign In Button */}
-        <button
-          onClick={handleGoogleAuth}
-          disabled={loading}
-          className="w-full py-3 px-4 rounded-xl bg-[#1F1F1F] border border-[#2A2A2A] hover:border-[#00FF88] text-white text-sm font-semibold flex items-center justify-center gap-3 transition-all mb-6 group"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24">
-            <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z" />
-            <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z" />
-            <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 10.8 0 12.3s.7 2.6 1.9 5l3.7-2.5z" />
-            <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z" />
-          </svg>
-          Continue with Google
-        </button>
-
-        <div className="relative flex items-center justify-center mb-6">
-          <div className="border-t border-[#262626] w-full"></div>
-          <span className="bg-[#141414] px-3 text-[10px] uppercase font-bold text-[#666666] absolute">or email</span>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleEmailAuth} className="space-y-4">
-          {isRegister && (
-            <div>
-              <label className="block text-xs font-semibold text-[#A0A0A0] mb-1">Full Name</label>
-              <input
-                type="text"
-                required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Sayad Yaqoob"
-                className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00FF88]"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-xs font-semibold text-[#A0A0A0] mb-1">Email Address</label>
-            <div className="relative flex items-center">
-              <Mail className="w-4 h-4 text-[#666666] absolute left-3" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="sayad@mindgigs.com"
-                className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00FF88]"
-              />
-            </div>
+        {/* Demo Fast Login Options */}
+        <div className="space-y-4">
+          <div className="text-xs uppercase font-bold tracking-wider text-slate-400 text-center mb-2">
+            Select Demo Account Persona
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-[#A0A0A0] mb-1">Password</label>
-            <div className="relative flex items-center">
-              <Lock className="w-4 h-4 text-[#666666] absolute left-3" />
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-[#0A0A0A] border border-[#262626] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00FF88]"
-              />
-            </div>
-          </div>
-
-          {isRegister && (
-            <div>
-              <label className="block text-xs font-semibold text-[#A0A0A0] mb-1">Account Role</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setRole('expert')}
-                  className={`py-2 rounded-xl text-xs font-bold border ${
-                    role === 'expert'
-                      ? 'bg-[#00FF88]/20 border-[#00FF88] text-[#00FF88]'
-                      : 'bg-[#0A0A0A] border-[#262626] text-[#A0A0A0]'
-                  }`}
-                >
-                  Expert (Seller)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole('client')}
-                  className={`py-2 rounded-xl text-xs font-bold border ${
-                    role === 'client'
-                      ? 'bg-[#00FF88]/20 border-[#00FF88] text-[#00FF88]'
-                      : 'bg-[#0A0A0A] border-[#262626] text-[#A0A0A0]'
-                  }`}
-                >
-                  Client (Buyer)
-                </button>
+          <button
+            onClick={() => handleMimicLogin('expert', 'expert')}
+            disabled={loadingRole !== null}
+            className="w-full py-4 px-5 rounded-xl bg-slate-900/80 border border-slate-700 hover:border-[#00C49F] text-white text-sm font-medium flex items-center justify-between transition-all group hover:bg-slate-900"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="p-2.5 rounded-lg bg-[#00C49F]/10 text-[#00C49F] group-hover:bg-[#00C49F] group-hover:text-slate-950 transition-colors">
+                <Briefcase className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <div className="font-semibold text-white">Fill Dummy Data (Expert Persona)</div>
+                <div className="text-xs text-slate-400">Authenticates as a seeded expert seller</div>
               </div>
             </div>
-          )}
+            {loadingRole === 'expert' ? (
+              <div className="w-5 h-5 border-2 border-[#00C49F] border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#00C49F] transition-colors" />
+            )}
+          </button>
 
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 rounded-xl bg-[#00FF88] text-black font-bold text-sm hover:bg-[#00CC6D] shadow-[0_0_20px_rgba(0,255,136,0.3)] transition-all flex items-center justify-center gap-2 mt-2"
+            onClick={() => handleMimicLogin('client', 'client')}
+            disabled={loadingRole !== null}
+            className="w-full py-4 px-5 rounded-xl bg-slate-900/80 border border-slate-700 hover:border-[#00C49F] text-white text-sm font-medium flex items-center justify-between transition-all group hover:bg-slate-900"
           >
-            {isRegister ? <UserPlus className="w-4 h-4" /> : <LogIn className="w-4 h-4" />}
-            {loading ? 'Processing...' : isRegister ? 'Sign Up' : 'Sign In'}
+            <div className="flex items-center gap-3.5">
+              <div className="p-2.5 rounded-lg bg-[#00C49F]/10 text-[#00C49F] group-hover:bg-[#00C49F] group-hover:text-slate-950 transition-colors">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <div className="font-semibold text-white">Fill Dummy Data (Client Persona)</div>
+                <div className="text-xs text-slate-400">Authenticates as a seeded client buyer</div>
+              </div>
+            </div>
+            {loadingRole === 'client' ? (
+              <div className="w-5 h-5 border-2 border-[#00C49F] border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#00C49F] transition-colors" />
+            )}
           </button>
-        </form>
 
-        {/* Toggle Mode */}
-        <div className="text-center mt-6">
           <button
-            onClick={() => setIsRegister(!isRegister)}
-            className="text-xs text-[#A0A0A0] hover:text-[#00FF88] transition-colors"
+            onClick={() => handleMimicLogin(undefined, 'random')}
+            disabled={loadingRole !== null}
+            className="w-full py-3.5 px-5 rounded-xl bg-[#00C49F] text-slate-950 font-bold text-sm hover:bg-[#00B08E] shadow-lg shadow-[#00C49F]/20 transition-all flex items-center justify-center gap-2"
           >
-            {isRegister ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+            <Zap className="w-4 h-4 fill-slate-950" />
+            {loadingRole === 'random' ? 'Authenticating...' : 'Sign In as Random Seeded User'}
           </button>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 pt-6 border-t border-slate-800 text-center">
+          <p className="text-xs text-slate-400">
+            Powered by LangGraph Agent Architecture & Groq LLM Runtime
+          </p>
         </div>
       </div>
     </div>

@@ -1,270 +1,122 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from './AuthContext';
 import { 
-  Sparkles, LayoutDashboard, Calendar, ShoppingBag, Search, 
-  UserCheck, Tag, Inbox, DollarSign, Video, Repeat, FileText, 
-  BookOpen, Star, Gift, Mail, Share2, User
+  Sparkles, Bot, LogOut, User as UserIcon, RefreshCw, ShieldCheck, Zap 
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout, loginAsMimic } = useAuth();
+  const [switching, setSwitching] = useState(false);
 
   const isActive = (path: string) => pathname === path;
+
+  const handleSwitchPersona = async () => {
+    setSwitching(true);
+    try {
+      const targetRole = user?.role === 'expert' ? 'client' : 'expert';
+      await loginAsMimic(targetRole);
+      router.refresh();
+    } catch (err) {
+      console.error('Failed to switch persona:', err);
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
 
   return (
     <aside className="w-64 bg-[#0B1320] border-r border-[#1E293B] h-screen sticky top-0 flex flex-col justify-between overflow-y-auto scrollbar-none z-30 select-none">
       <div>
         {/* Brand Header */}
         <div className="p-6 border-b border-[#1E293B] flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#00C49F] text-white font-black flex items-center justify-center text-lg shadow-[0_0_15px_rgba(0,196,159,0.3)]">
-            M
+          <div className="w-9 h-9 rounded-xl bg-[#00C49F] text-slate-950 font-black flex items-center justify-center text-xl shadow-md shadow-[#00C49F]/20">
+            N
           </div>
           <div>
-            <h1 className="font-bold text-white tracking-wide text-lg">MINDGIGS</h1>
-            <span className="text-[10px] uppercase text-[#00C49F] font-semibold tracking-wider">AI Marketplace</span>
+            <h1 className="font-bold text-white tracking-tight text-lg">NEXUS</h1>
+            <span className="text-[10px] uppercase text-[#00C49F] font-bold tracking-wider">
+              Agentic Marketplace
+            </span>
           </div>
         </div>
 
-        {/* Primary NEXUS Highlighted Item */}
+        {/* Primary Workspace Link */}
         <div className="p-3">
           <Link
             href="/nexus"
             className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${
               isActive('/nexus')
-                ? 'bg-[#112233] text-[#00C49F] border border-[#00C49F] shadow-[0_0_15px_rgba(0,196,159,0.2)]'
-                : 'bg-[#112233]/70 text-[#00C49F] hover:bg-[#112233] border border-[#00C49F]/30'
+                ? 'bg-[#112233] text-[#00C49F] border border-[#00C49F]/50 shadow-md shadow-[#00C49F]/10'
+                : 'bg-[#112233]/60 text-slate-300 hover:bg-[#112233] hover:text-[#00C49F] border border-slate-800'
             }`}
           >
-            <Sparkles className="w-5 h-5 text-[#00C49F] animate-pulse" />
-            <span className="text-sm">NEXUS Assistant</span>
-            <span className="ml-auto text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-[#00C49F]/20 text-[#00C49F] uppercase border border-[#00C49F]/40">
-              AI
+            <Sparkles className="w-5 h-5 text-[#00C49F]" />
+            <span className="text-sm">Agent Canvas</span>
+            <span className="ml-auto text-[10px] font-extrabold px-2 py-0.5 rounded bg-[#00C49F]/20 text-[#00C49F] uppercase border border-[#00C49F]/30">
+              ACTIVE
             </span>
           </Link>
         </div>
 
-        {/* Main Navigation */}
-        <nav className="px-3 py-2 space-y-6 text-sm">
-          {/* Dashboard */}
-          <Link
-            href="/dashboard"
-            className={`flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium transition-colors ${
-              isActive('/dashboard')
-                ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-            }`}
-          >
-            <LayoutDashboard className="w-4 h-4" />
-            Dashboard
-          </Link>
+        {/* Active User Persona Card */}
+        {user && (
+          <div className="mx-3 mt-2 p-4 rounded-xl bg-[#112233]/80 border border-slate-700/60 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <UserIcon className="w-3.5 h-3.5 text-[#00C49F]" />
+                Identity
+              </div>
+              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded uppercase border ${
+                user.role === 'expert'
+                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                  : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+              }`}>
+                {user.role}
+              </span>
+            </div>
 
-          {/* BUY SECTION */}
-          <div>
-            <div className="px-4 text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2">
-              Buy
+            <div>
+              <div className="font-semibold text-white text-sm truncate">{user.full_name}</div>
+              <div className="text-xs text-slate-400 truncate">@{user.public_handle}</div>
+              <div className="text-[11px] text-slate-400 mt-1">Currency: <span className="font-semibold text-slate-300">{user.currency || 'USD'}</span></div>
             </div>
-            <div className="space-y-1">
-              <Link
-                href="/bookings"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/bookings')
-                    ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-                }`}
-              >
-                <Calendar className="w-4 h-4" />
-                My Bookings
-              </Link>
-              <Link
-                href="/purchases"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/purchases')
-                    ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-                }`}
-              >
-                <ShoppingBag className="w-4 h-4" />
-                My Purchases
-              </Link>
-              <Link
-                href="/find"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/find')
-                    ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-                }`}
-              >
-                <Search className="w-4 h-4" />
-                Find Experts
-              </Link>
-            </div>
-          </div>
 
-          {/* SELL SECTION */}
-          <div>
-            <div className="px-4 text-[11px] font-bold text-[#64748B] uppercase tracking-wider mb-2">
-              Sell
-            </div>
-            <div className="space-y-1">
-              <Link
-                href="/expert-profile"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/expert-profile')
-                    ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-                }`}
-              >
-                <UserCheck className="w-4 h-4" />
-                Expert Profile
-              </Link>
-              <Link
-                href="/my-offers"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/my-offers')
-                    ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-                }`}
-              >
-                <Tag className="w-4 h-4" />
-                My Offers
-              </Link>
-              <Link
-                href="/incoming-bookings"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/incoming-bookings')
-                    ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-                }`}
-              >
-                <Inbox className="w-4 h-4" />
-                Incoming Bookings
-              </Link>
-              <Link
-                href="/earnings"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/earnings')
-                    ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-                }`}
-              >
-                <DollarSign className="w-4 h-4" />
-                Earnings
-              </Link>
-              <Link
-                href="/sessions"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/sessions')
-                    ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-                }`}
-              >
-                <Video className="w-4 h-4" />
-                1:1 Sessions
-              </Link>
-              <Link
-                href="/subscriptions"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/subscriptions')
-                    ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-                }`}
-              >
-                <Repeat className="w-4 h-4" />
-                Subscriptions
-              </Link>
-              <Link
-                href="/products"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/products')
-                    ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-                }`}
-              >
-                <FileText className="w-4 h-4" />
-                Digital Products
-              </Link>
-              <Link
-                href="/books"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/books')
-                    ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-                }`}
-              >
-                <BookOpen className="w-4 h-4" />
-                Books
-              </Link>
-              <Link
-                href="/highlights"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/highlights')
-                    ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-                }`}
-              >
-                <Star className="w-4 h-4" />
-                Highlights
-              </Link>
-              <Link
-                href="/custom-offerings"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/custom-offerings')
-                    ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-                }`}
-              >
-                <Gift className="w-4 h-4" />
-                Custom Offerings
-              </Link>
-              <Link
-                href="/newsletter"
-                className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                  isActive('/newsletter')
-                    ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                    : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-                }`}
-              >
-                <Mail className="w-4 h-4" />
-                Newsletter
-              </Link>
-            </div>
-          </div>
-
-          {/* AFFILIATE & ACCOUNT */}
-          <div className="pt-2 border-t border-[#1E293B] space-y-1">
-            <Link
-              href="/affiliate"
-              className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                isActive('/affiliate')
-                  ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                  : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-              }`}
+            <button
+              onClick={handleSwitchPersona}
+              disabled={switching}
+              className="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 border border-slate-600/60 transition-colors"
             >
-              <Share2 className="w-4 h-4" />
-              Affiliate
-            </Link>
-            <Link
-              href="/account"
-              className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-                isActive('/account')
-                  ? 'bg-[#112233] text-[#00C49F] border-l-2 border-[#00C49F]'
-                  : 'text-[#94A3B8] hover:text-white hover:bg-[#112233]/50'
-              }`}
-            >
-              <User className="w-4 h-4" />
-              Account
-            </Link>
+              <RefreshCw className={`w-3.5 h-3.5 text-[#00C49F] ${switching ? 'animate-spin' : ''}`} />
+              Switch Persona ({user.role === 'expert' ? 'Client' : 'Expert'})
+            </button>
           </div>
-        </nav>
+        )}
       </div>
 
-      {/* Footer info */}
-      <div className="p-4 border-t border-[#1E293B] text-[11px] text-[#64748B] flex justify-between items-center">
-        <span>MindGigs v2.0</span>
-        <span className="text-[#00C49F]">Groq AI</span>
+      {/* Footer Controls */}
+      <div className="p-4 border-t border-[#1E293B] space-y-3">
+        <div className="flex items-center gap-2 text-xs text-slate-400 px-2">
+          <Bot className="w-4 h-4 text-[#00C49F]" />
+          <span>NexusGraph Online</span>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          className="w-full py-2.5 px-3 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 text-xs font-semibold flex items-center justify-center gap-2 border border-transparent hover:border-red-500/20 transition-all"
+        >
+          <LogOut className="w-4 h-4" />
+          Logout Session
+        </button>
       </div>
     </aside>
   );

@@ -102,6 +102,23 @@ class GroqAdapter(LLMAdapter):
 
         raise RuntimeError(f"Groq API call failed after retries for model {model}")
 
+    async def classify(self, prompt: str) -> str:
+        """Lightweight classification using Groq fast model with fallback."""
+        try:
+            return await self._call_groq_api(prompt, model=self.fast_model, json_mode=False)
+        except Exception as e:
+            print(f"⚠️ [GroqAdapter] Classification fallback: {e}")
+            return "general_chat"
+
+    async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+        """Generate response using Groq reasoning model with system prompt support."""
+        full_prompt = f"System: {system_prompt}\n\nUser: {prompt}" if system_prompt else prompt
+        try:
+            return await self._call_groq_api(full_prompt, model=self.reasoning_model, json_mode=False)
+        except Exception as e:
+            print(f"⚠️ [GroqAdapter] Response generation fallback: {e}")
+            return "I am experiencing temporary connection issues with the AI service. How else can I assist you?"
+
     async def extract_structured(self, prompt: str, schema: Type[T]) -> T:
         """Extract structured JSON using Groq fast model with graceful fallback."""
         schema_json = json.dumps(schema.model_json_schema(), indent=2)
@@ -125,11 +142,7 @@ Respond ONLY with a valid JSON object following the schema exact keys."""
 
     async def generate_reasoning(self, prompt: str) -> str:
         """Generate reasoning or text response using Groq reasoning model with fallback."""
-        try:
-            return await self._call_groq_api(prompt, model=self.reasoning_model, json_mode=False)
-        except Exception as e:
-            print(f"⚠️ [GroqAdapter] Reasoning generation failed/degraded: {e}. Returning graceful fallback.")
-            return "AI enhancement temporarily unavailable. Displaying standard match ranking."
+        return await self.generate(prompt)
 
     def _rule_based_expert_fallback(self, prompt: str, schema: Type[T]) -> T:
         """Rule-based heuristic extraction for expert profiles when LLM is unavailable."""

@@ -1,11 +1,12 @@
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import (
-    Column, Integer, String, Text, Float, Boolean, 
+    Column, Integer, String, Text, Float, Boolean,
     DateTime, ForeignKey, LargeBinary, Numeric, func
 )
 from sqlalchemy.orm import relationship
 from database.connection import Base
+
 
 class User(Base):
     __tablename__ = "users"
@@ -13,13 +14,14 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     full_name = Column(String(255), nullable=False)
-    role = Column(String(50), nullable=False, default="client") # expert, client, admin
+    role = Column(String(50), nullable=False, default="client")  # expert, client, admin
     public_handle = Column(String(100), unique=True, nullable=False, index=True)
+    currency = Column(String(10), default="USD")
     created_at = Column(DateTime, server_default=func.now())
 
     # Relationships
     expert_profile = relationship("ExpertProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
-    client_sessions = relationship("ClientSession", back_populates="user")
+    nexus_sessions = relationship("NexusSession", back_populates="user", cascade="all, delete-orphan")
 
 
 class ExpertProfile(Base):
@@ -29,7 +31,7 @@ class ExpertProfile(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
     bio = Column(Text, nullable=True)
     professional_headline = Column(String(255), nullable=True)
-    expertise_tags = Column(Text, nullable=True) # Comma-separated or JSON list
+    expertise_tags = Column(Text, nullable=True)  # Comma-separated
     category = Column(String(100), nullable=False, index=True)
     currency = Column(String(10), default="USD")
     linkedin_url = Column(String(255), nullable=True)
@@ -49,7 +51,6 @@ class ExpertProfile(Base):
     user = relationship("User", back_populates="expert_profile")
     offerings = relationship("Offering", back_populates="expert", cascade="all, delete-orphan")
     embedding = relationship("ExpertEmbedding", back_populates="expert", uselist=False, cascade="all, delete-orphan")
-    matches = relationship("Match", back_populates="expert")
 
 
 class Offering(Base):
@@ -57,10 +58,10 @@ class Offering(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     expert_id = Column(Integer, ForeignKey("expert_profiles.id"), nullable=False)
-    offer_type = Column(String(50), nullable=False) # '1:1 Session', 'Subscription', 'Digital Product', 'Custom Offer', 'Book', 'Highlight'
+    offer_type = Column(String(50), nullable=False)
     title = Column(String(255), nullable=False)
     price = Column(Numeric(10, 2), nullable=False)
-    duration = Column(String(50), nullable=True) # e.g. "60 min"
+    duration = Column(String(50), nullable=True)
     description = Column(Text, nullable=True)
     file_required = Column(Boolean, default=False)
     file_path = Column(String(500), nullable=True)
@@ -72,44 +73,70 @@ class Offering(Base):
     expert = relationship("ExpertProfile", back_populates="offerings")
 
 
-class ClientSession(Base):
-    __tablename__ = "client_sessions"
+class NexusSession(Base):
+    """Persistent conversation session for the NEXUS agent."""
+    __tablename__ = "nexus_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Null for anonymous
-    conversation_history = Column(Text, nullable=True, default="[]") # JSON string
-    requirements_json = Column(Text, nullable=True) # Extracted JSON requirements
-    status = Column(String(50), default="active") # active, completed, abandoned
+    session_id = Column(String(64), unique=True, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    conversation_history = Column(Text, nullable=True, default="[]")  # JSON array of messages
+    state_json = Column(Text, nullable=True, default="{}")  # Serialized agent state
+    status = Column(String(50), default="active")  # active, completed, abandoned
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # Relationships
-    user = relationship("User", back_populates="client_sessions")
-    matches = relationship("Match", back_populates="client_session", cascade="all, delete-orphan")
-
-
-class Match(Base):
-    __tablename__ = "matches"
-
-    id = Column(Integer, primary_key=True, index=True)
-    client_session_id = Column(Integer, ForeignKey("client_sessions.id"), nullable=False)
-    expert_id = Column(Integer, ForeignKey("expert_profiles.id"), nullable=False)
-    match_score = Column(Float, nullable=False) # 0.0 to 1.0
-    reasoning = Column(Text, nullable=True)
-    rank = Column(Integer, nullable=False) # 1, 2, 3
-    created_at = Column(DateTime, server_default=func.now())
-
-    # Relationships
-    client_session = relationship("ClientSession", back_populates="matches")
-    expert = relationship("ExpertProfile", back_populates="matches")
+    user = relationship("User", back_populates="nexus_sessions")
 
 
 class ExpertEmbedding(Base):
     __tablename__ = "expert_embeddings"
 
     expert_id = Column(Integer, ForeignKey("expert_profiles.id"), primary_key=True)
-    embedding = Column(LargeBinary, nullable=False) # Vector bytes
+    embedding = Column(LargeBinary, nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # Relationships
     expert = relationship("ExpertProfile", back_populates="embedding")
+
+
+# --- Future placeholder models (schema only, no business logic in Stage 1) ---
+
+class Booking(Base):
+    """Placeholder for future booking functionality."""
+    __tablename__ = "bookings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    client_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    expert_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    offering_id = Column(Integer, ForeignKey("offerings.id"), nullable=True)
+    status = Column(String(50), default="pending")  # pending, confirmed, completed, cancelled
+    scheduled_at = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class Earning(Base):
+    """Placeholder for future earnings tracking."""
+    __tablename__ = "earnings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    expert_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    booking_id = Column(Integer, ForeignKey("bookings.id"), nullable=True)
+    amount = Column(Numeric(10, 2), nullable=False)
+    currency = Column(String(10), default="USD")
+    status = Column(String(50), default="pending")  # pending, paid, refunded
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class Payout(Base):
+    """Placeholder for future payout processing."""
+    __tablename__ = "payouts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    expert_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    amount = Column(Numeric(10, 2), nullable=False)
+    currency = Column(String(10), default="USD")
+    status = Column(String(50), default="pending")  # pending, processing, completed, failed
+    created_at = Column(DateTime, server_default=func.now())

@@ -9,8 +9,8 @@ from database.connection import init_db
 from database.seed import seed_database
 from services.adapters import get_data_adapter, get_vector_adapter
 from api.shared import router as shared_router
-from api.expert import router as expert_router
-from api.client import router as client_router
+from api.auth import router as auth_router
+from api.agent import router as agent_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     # 1. Initialize DB tables
     await init_db()
     
-    # 2. Seed database with mock experts
+    # 2. Seed database with mock experts and clients
     await seed_database()
     
     # 3. Index expert profiles into FAISS vector store via VectorAdapter
@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[FAISS WARNING] Vector index initialization warning: {e}")
 
-    print("[SUCCESS] System Ready! FastAPI + Groq + FAISS online.")
+    print("[SUCCESS] System Ready! FastAPI + Groq + LangGraph + FAISS online.")
     yield
     print("[SHUTDOWN] Shutting down NEXUS API server.")
 
@@ -45,10 +45,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configure CORS
+# Configure CORS for local Next.js frontend
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -60,8 +65,8 @@ app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"
 
 # Include API routers
 app.include_router(shared_router, prefix=settings.API_V1_STR, tags=["Shared"])
-app.include_router(expert_router, prefix=settings.API_V1_STR, tags=["Expert Studio"])
-app.include_router(client_router, prefix=settings.API_V1_STR, tags=["Client Match"])
+app.include_router(auth_router, prefix=settings.API_V1_STR, tags=["Authentication"])
+app.include_router(agent_router, prefix=settings.API_V1_STR, tags=["NEXUS Agent"])
 
 @app.get("/")
 async def root():

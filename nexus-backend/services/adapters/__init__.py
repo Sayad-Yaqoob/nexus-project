@@ -1,9 +1,9 @@
-from services.adapters.base import DataAdapter, LLMAdapter, VectorAdapter, User, ExpertProfile, Offering
-from services.adapters.firestore_adapter import FirestoreAdapter
+from services.adapters.base import DataAdapter, LLMAdapter, VectorAdapter, User, ExpertProfile, Offering, UserContext
+from services.adapters.sqlite_adapter import SQLiteDataAdapter
 from services.adapters.groq_adapter import GroqAdapter
 from services.adapters.faiss_adapter import FAISSAdapter
 
-_data_adapter = FirestoreAdapter()
+_data_adapter = SQLiteDataAdapter()
 _llm_adapter = GroqAdapter()
 _vector_adapter = FAISSAdapter()
 
@@ -18,7 +18,7 @@ def get_vector_adapter() -> VectorAdapter:
 
 __all__ = [
     "DataAdapter", "LLMAdapter", "VectorAdapter",
-    "User", "ExpertProfile", "Offering",
-    "FirestoreAdapter", "GroqAdapter", "FAISSAdapter",
+    "User", "ExpertProfile", "Offering", "UserContext",
+    "SQLiteDataAdapter", "GroqAdapter", "FAISSAdapter",
     "get_data_adapter", "get_llm_adapter", "get_vector_adapter"
 ]
