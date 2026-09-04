@@ -1,5 +1,5 @@
 import json
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -18,6 +18,11 @@ class FindExpertsRequest(BaseModel):
     category_filter: Optional[str] = None
     user_id: Optional[str] = None
 
+class ClarificationQuestion(BaseModel):
+    id: str
+    question: str
+    options: List[str]
+
 class ExpertMatchItem(BaseModel):
     id: Union[str, int]
     user_id: Union[str, int]
@@ -26,7 +31,7 @@ class ExpertMatchItem(BaseModel):
     headline: str
     category: str
     tags: List[str]
-    match_score: float # percentage 0 to 100
+    match_score: float
     reasoning: str
     is_verified: bool = True
     top_offering: Optional[Dict[str, Any]] = None
@@ -34,7 +39,10 @@ class ExpertMatchItem(BaseModel):
 class FindExpertsResponse(BaseModel):
     status: str = "success"
     raw_problem: str
-    matches: List[ExpertMatchItem]
+    needs_clarification: bool = False
+    confidence_score: float = 0.95
+    clarification_questions: List[ClarificationQuestion] = Field(default_factory=list)
+    matches: List[ExpertMatchItem] = Field(default_factory=list)
 
 @router.post("/client/find-experts", response_model=FindExpertsResponse)
 async def find_experts(
@@ -44,29 +52,34 @@ async def find_experts(
     vector_adapter: VectorAdapter = Depends(get_vector_adapter)
 ):
     """
-    Client Match: Embeds problem description, searches FAISS vector store,
-    uses Groq LLM to rank and generate custom match reasoning lines, and returns top 3 experts.
+    Client Match: Evaluates query specificity. If broad/ambiguous, returns clarification pills.
+    Otherwise embeds problem description, searches FAISS vector store, uses Groq LLM to rank matches.
     """
     if not req.raw_problem or not req.raw_problem.strip():
         raise HTTPException(status_code=400, detail="raw_problem is required")
 
-    # 1. Fetch all experts from DataAdapter to ensure index is loaded
+    words = [w for w in req.raw_problem.strip().split() if len(w) > 2]
+
+    # Check for broad / ambiguous query (less than 4 specific terms and no domain indicators)
+    is_broad = len(words) < 4 and not any(kw in req.raw_problem.lower() for kw in [
+        "rag", "fine-tuning", "next.js", "aws", "terraform", "pitch deck", "cro", "meddpicc", "seo", "cfo", "supply chain"
+    ])
+
+    # 1. Fetch all experts to sync index
     all_experts = await data_adapter.list_experts()
     if all_experts:
         await vector_adapter.index_experts(all_experts)
 
-    # 2. Get embedding for client problem description
+    # 2. Get vector embedding
     query_vec = []
     if isinstance(vector_adapter, FAISSAdapter):
         query_vec = vector_adapter.get_embedding(req.raw_problem)
     else:
-        # Fallback dummy embedding
         query_vec = [0.1] * 384
 
-    # 3. Vector search top candidates
+    # 3. Search vector store
     search_results = await vector_adapter.search(query_vec, top_k=5)
 
-    # If vector search returned results
     candidate_profiles: List[tuple[ExpertProfile, float]] = []
     if search_results:
         for exp_id, score in search_results:
@@ -74,29 +87,24 @@ async def find_experts(
             if prof:
                 candidate_profiles.append((prof, score))
 
-    # If no vector matches found, fallback to listing experts directly
     if not candidate_profiles:
         for p in all_experts[:5]:
             candidate_profiles.append((p, 0.75))
 
-    # 4. Generate LLM match reasoning and rank top 3
+    # 4. Generate ranking & reasoning
     final_matches: List[ExpertMatchItem] = []
-
     for idx, (prof, base_score) in enumerate(candidate_profiles[:3]):
-        # Match score calculation
         pct_score = round(min(98.5, max(65.0, base_score * 100.0 if base_score <= 1.0 else base_score)), 1)
-        
         tags_str = ", ".join(prof.expertise_tags) if isinstance(prof.expertise_tags, list) else (prof.expertise_tags or "")
         
         prompt = (
             f"You are NEXUS matchmaker for MindGigs. Client problem: '{req.raw_problem}'. "
             f"Expert: {prof.full_name or 'Specialist'} ({prof.professional_headline}). "
-            f"Category: {prof.category}. Expertise tags: {tags_str}. Bio snippet: {prof.bio[:150]}. "
-            f"In ONE concise, high-impact sentence, explain why this expert is a great match for the client's problem."
+            f"Category: {prof.category}. Tags: {tags_str}. "
+            f"Explain in ONE short sentence why this expert matches."
         )
 
         reasoning = await llm_adapter.generate_reasoning(prompt)
-        # Clean reasoning text
         reasoning = reasoning.strip().strip('"')
 
         top_offering = None
@@ -126,7 +134,27 @@ async def find_experts(
             top_offering=top_offering
         ))
 
+    # Clarification options generation for broad queries
+    clarification_questions = []
+    if is_broad:
+        clarification_questions = [
+            ClarificationQuestion(
+                id="q1",
+                question="Which specific objective are you looking to achieve?",
+                options=[
+                    "Build LLM & RAG Application",
+                    "Scale SaaS Full-Stack Architecture",
+                    "Optimize AWS Cloud Infrastructure",
+                    "Fundraising & Pitch Deck Advisory",
+                    "Growth Marketing & Paid Acquisition"
+                ]
+            )
+        ]
+
     return FindExpertsResponse(
         raw_problem=req.raw_problem,
+        needs_clarification=is_broad,
+        confidence_score=0.65 if is_broad else 0.95,
+        clarification_questions=clarification_questions,
         matches=final_matches
     )

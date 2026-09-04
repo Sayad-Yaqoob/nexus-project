@@ -56,11 +56,14 @@ async def get_user_me(
     """User context loading endpoint for NEXUS greeting and mode context."""
     profile = await data_adapter.get_expert_profile(str(current_user.id))
     
+    role_str = "Expert" if current_user.role == "expert" else "Client"
+    greeting = f"Welcome back, {current_user.full_name}! NEXUS {role_str} workspace ready."
+
     return {
         "mode": current_user.role,
         "user": current_user.model_dump(),
         "existing_profile": profile.model_dump() if profile else None,
-        "personalized_greeting": f"Welcome back, {current_user.full_name}! NEXUS Studio ready for your offerings."
+        "personalized_greeting": greeting
     }
 
 @router.get("/experts")
