@@ -216,3 +216,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# NEXUS Specific Ignores
+.env
+.env.local
+.env.*.local
+*.db
+*.sqlite
+nexus-backend/nexus.db
+node_modules/
+.next/
+nexus-frontend/.next/
+nexus-frontend/node_modules/
+firebase-credentials.json
+uploads/*
+!uploads/.gitkeep
+

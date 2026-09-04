@@ -490,6 +490,7 @@ async def seed_database():
                 currency="USD",
                 linkedin_url=f"https://linkedin.com/in/{data['handle']}",
                 x_url=f"https://x.com/{data['handle']}",
+                website_url=f"https://api.dicebear.com/7.x/avataaars/svg?seed={data['handle']}",
                 timezone="UTC-5",
                 session_duration_default=60,
                 buffer_between_sessions=15,

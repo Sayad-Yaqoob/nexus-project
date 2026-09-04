@@ -78,18 +78,26 @@ async def list_experts(
 
 @router.get("/health")
 async def health_check(
+    data_adapter: DataAdapter = Depends(get_data_adapter),
     llm_adapter: LLMAdapter = Depends(get_llm_adapter),
     vector_adapter: VectorAdapter = Depends(get_vector_adapter)
 ):
-    """Health check endpoint indicating LLM provider & vector store status."""
+    """Health check endpoint indicating DataAdapter, Groq API connectivity & vector store status."""
+    experts = await data_adapter.list_experts()
+    has_groq_key = bool(settings.GROQ_API_KEY)
+
     return {
         "status": "ok",
         "project": settings.PROJECT_NAME,
         "version": settings.VERSION,
+        "data_adapter": data_adapter.__class__.__name__,
+        "data_adapter_mode": "firestore" if getattr(data_adapter, "_is_firestore", False) else "sqlite_fallback",
         "llm_provider": "groq",
+        "groq_api_configured": has_groq_key,
         "fast_model": settings.GROQ_FAST_MODEL,
         "reasoning_model": settings.GROQ_PREMIUM_MODEL,
         "vector_store": "faiss-cpu",
         "embedding_model": settings.EMBEDDING_MODEL,
+        "faiss_index_count": len(experts),
         "portable_adapters": True
     }

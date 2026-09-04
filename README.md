@@ -1,124 +1,163 @@
-# NEXUS — MindGigs Agentic AI Marketplace System
+# NEXUS — Agentic Sales Growth System for MindGigs
 
-> **NEXUS** is a dual-sided, state-machine driven AI marketplace assistant for MindGigs.com. Built with **FastAPI**, **LangGraph**, **Groq LLM API**, **FAISS-CPU**, and **Next.js 14**, NEXUS revolutionizes expert onboarding and client matching through natural language reasoning.
-
----
-
-## 🌟 Key Features
-
-### 1. 🤖 Expert Agent Onboarding (`agents/expert/`)
-* **Natural Language Profile Generation**: Converts raw, unstructured expert descriptions into high-converting professional headlines, structured bios, skill tags, and categorized service offerings.
-* **Ambiguity & Quality Control**: Evaluates profile completeness and calculates a confidence score. Automatically triggers clarification questions if key details are missing.
-* **Asset Validation Engine**: Enforces file requirements (PDF, ZIP, EPUB) for digital products and ebooks prior to marketplace publishing.
-* **Live Preview & One-Click Publishing**: Generates interactive preview cards for human approval before persisting to SQLite and indexing in FAISS vector space.
-
-### 2. ⚡ Client Matching Agent (`agents/client/`)
-* **Conversational Requirement Briefing**: Translates client problem statements into structured JSON briefs containing category, goals, urgency, and skill constraints.
-* **FAISS Semantic Search**: Queries pre-computed 384-dimensional `sentence-transformers/all-MiniLM-L6-v2` embeddings for sub-millisecond vector similarity retrieval across candidate experts.
-* **Groq Premium Model LLM Ranking**: Re-ranks candidates with personalized reasoning explaining exactly why each expert is uniquely qualified.
-
-### 3. 🎨 MindGigs Dark Mode UI (`nexus-frontend/`)
-* Built with **Next.js 14 (App Router)**, **TypeScript**, and **Tailwind CSS**.
-* **MindGigs Aesthetics**: Dark slate canvas (`#0A0A0A`), card containers (`#141414`), and vibrant Neon Green accents (`#00FF88`).
-* **Dual Mode Header Toggle**: Seamlessly switch between *Expert Mode* and *Client Mode*.
+> **API-First. Portable by Design. Zero Local LLM Dependency.**  
+> Second-Generation Agentic Marketplace Engine built for MindGigs.
 
 ---
 
-## 🚀 Quick Start Guide
+## 🎯 1. Project Vision
+
+NEXUS is a portable, API-first agentic sales growth engine built for **MindGigs** (a dual-sided marketplace where Experts sell digital services & Clients buy solutions). 
+
+While generic chatbot wrappers fail because they lack personal context and structured output, NEXUS solves this by combining **Groq API high-speed LLMs**, **local FAISS vector embeddings**, and an **abstract Adapter Architecture** to deliver two primary workflows:
+
+1. **Expert Studio**: Guided workspace that converts raw natural language descriptions into structured profile drafts, offering listings, file validation rules, and live preview cards published to Firestore.
+2. **Client Match**: Interactive matching engine that converts client problem briefs into 3D FAISS vector embeddings, ranks top 3 expert matches via Groq reasoning, and presents interactive clarification pills for broad queries.
+
+---
+
+## ✨ 2. Features Matrix
+
+| Feature | Description | Technology |
+| :--- | :--- | :--- |
+| **Groq API LLM Extraction** | Converts natural language expertise into structured headlines, bios, categories, and skill tags | `mixtral-8x7b-32768` |
+| **Groq Reasoning Ranker** | Generates personalized high-impact match reasoning lines for top expert recommendations | `llama-3.3-70b-versatile` |
+| **Local FAISS Vector Search** | Sub-millisecond vector similarity search over expert profiles & offerings | `faiss-cpu` + `all-MiniLM-L6-v2` |
+| **File Validation Engine** | Enforces mandatory file attachments for Digital Products (PDF/ZIP/XLSX ≤ 50MB) & Books (PDF ≤ 80MB) | `file_handler.py` |
+| **Client Clarification Loop** | Detects broad/ambiguous client queries and renders selectable inline clarification pills | FastAPI + React |
+| **Portable Adapter Layer** | One `.env` line swaps Data, LLM, or Vector providers without touching business logic | Python Abstract Base Classes |
+| **Graceful Degradation** | Automatically degrades to rule-based logic & template forms on 429 rate limits | Exponential Backoff (2s → 16s) |
+| **MindGigs Design System** | Light off-white canvas (`#F8F9FA`), dark navy sidebar (`#0B1320`), mint green accents (`#00C49F`) | Next.js 16 + Tailwind CSS |
+| **Draggable Floating Bubble** | Floating AI assistant button on non-NEXUS pages with position saved to `localStorage` | HTML5 Drag & Drop API |
+
+---
+
+## 🏗️ 3. Architecture Diagram
+
+```
+                 +-------------------------------------------------------+
+                 |                   NEXUS FRONTEND                      |
+                 |      Next.js 16 (Turbopack) + Tailwind CSS + Auth     |
+                 |  - /nexus Workspace (Expert Studio | Client Match)    |
+                 |  - Draggable Floating Bubble & MindGigs Sidebar Nav    |
+                 +---------------------------+---------------------------+
+                                             |
+                                  REST API / JSON (Bearer ID Token)
+                                             v
+                 +-------------------------------------------------------+
+                 |                    FASTAPI BACKEND                    |
+                 |  - /api/v1/expert/generate-profile                    |
+                 |  - /api/v1/expert/generate-offering & publish         |
+                 |  - /api/v1/client/find-experts (FAISS + Reasoning)    |
+                 |  - /api/v1/health & /api/v1/users/me                  |
+                 +---------------------------+---------------------------+
+                                             |
+                          DEPENDENCY INJECTION ADAPTER LAYER
+                                             |
+       +-------------------------------------+-------------------------------------+
+       |                                     |                                     |
+       v                                     v                                     v
++---------------+                     +---------------+                     +---------------+
+|  DataAdapter  |                     |  LLMAdapter   |                     | VectorAdapter |
++---------------+                     +---------------+                     +---------------+
+| Firestore /   |                     | Groq API      |                     | FAISS-CPU +   |
+| SQLite Local  |                     | (mixtral-8x7b |                     | sentence-     |
+| Fallback      |                     |  llama-3.3)   |                     | transformers  |
++---------------+                     +---------------+                     +---------------+
+```
+
+---
+
+## 🔌 4. Plug-and-Play Adapter Guide
+
+NEXUS is designed for complete portability between developer environments and Aartec's production infrastructure. Every external service lives behind an Abstract Base Class in `nexus-backend/services/adapters/base.py`.
+
+### Swapping Firebase Projects
+To switch data persistence from your dev project to Aartec's production Firebase, simply update `.env`:
+
+```env
+# Change this in .env:
+FIREBASE_PROJECT_ID=aartec-production-firebase-id
+FIREBASE_CREDENTIALS_PATH=./production-firebase-credentials.json
+```
+
+**Zero code changes required.** If Firebase Admin credentials are not supplied, `FirestoreAdapter` automatically falls back to local SQLite execution (`sqlite+aiosqlite:///./nexus.db`).
+
+### Swapping LLM Providers
+To switch LLM execution from Groq to OpenAI or another provider in the future:
+1. Implement `OpenAIAdapter(LLMAdapter)` inheriting from `services.adapters.base.LLMAdapter`.
+2. Update `.env`: `LLM_PROVIDER=openai`.
+
+---
+
+## 🚀 5. Local Quickstart
 
 ### Prerequisites
-* Python 3.11+
-* Node.js 18+ & npm
-* Groq API Key (Set in `nexus-backend/.env`)
+- Node.js 18+ & npm
+- Python 3.10+
+- Groq API Key (Free tier at [console.groq.com](https://console.groq.com))
 
----
+### 1. Clone & Configure Environment
+```bash
+cp .env.example .env
+```
 
-### Step 1: Launch Backend API Server
+Set your `GROQ_API_KEY` in `.env`:
+```env
+GROQ_API_KEY=gsk_your_groq_api_key_here
+```
 
+### 2. Run Backend (FastAPI)
 ```bash
 cd nexus-backend
+python -m venv venv
+# On Windows: venv\Scripts\activate
+# On Linux/macOS: source venv/bin/activate
 
-# Activate virtual environment
-.\venv\Scripts\activate
-
-# Install dependencies (if not already installed)
 pip install -r requirements.txt
-
-# Start FastAPI server with Uvicorn
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+python main.py
 ```
+Backend API will start at: `http://localhost:8000` (Docs at `http://localhost:8000/docs`).
 
-* Backend API Docs: `http://localhost:8000/docs`
-* Health Check: `http://localhost:8000/api/v1/health`
-
-*Note: On initial startup, `main.py` automatically initializes the SQLite database schema (`nexus.db`), seeds 30 realistic experts across 10 categories, and generates the FAISS vector index (`embeddings.index`).*
-
----
-
-### Step 2: Launch Next.js Frontend
-
+### 3. Run Frontend (Next.js)
 ```bash
 cd nexus-frontend
-
-# Install dependencies
 npm install
-
-# Start Next.js Development Server
 npm run dev
 ```
-
-* Frontend UI: `http://localhost:3000`
-
----
-
-## 🏗 System Architecture
-
-```mermaid
-graph TD
-    Client[Client Browser / Next.js 14] -->|REST API| API[FastAPI Gateway]
-    
-    subgraph "NEXUS Backend System"
-        API --> Auth[JWT & User Context]
-        API --> ExpertGraph[LangGraph Expert Agent]
-        API --> ClientGraph[LangGraph Client Match Agent]
-        
-        ExpertGraph -->|Groq LLM| LLM[Groq API: Mixtral-8x7B / Llama-3.3-70B]
-        ClientGraph -->|Groq LLM| LLM
-        
-        ClientGraph -->|Query Vector| VectorEngine[SentenceTransformer MiniLM]
-        VectorEngine -->|Search top-10| FAISS[FAISS-CPU Index]
-        
-        ExpertGraph -->|Save Profile| DB[(SQLite Database)]
-        ClientGraph -->|Save Session & Matches| DB
-        DB -->|Sync Embeddings| FAISS
-    end
-```
+Frontend App will start at: `http://localhost:3000` (Redirects to `/nexus`).
 
 ---
 
-## 📁 Repository Structure
+## 🐳 6. Docker Compose Orchestration
 
+Run both frontend and backend in isolated containers with Docker Compose:
+
+```bash
+docker-compose up --build
 ```
-nexus-project/
-├── nexus-backend/
-│   ├── main.py                # FastAPI app entry point & lifespan manager
-│   ├── config.py              # Settings & environment configuration
-│   ├── database/
-│   │   ├── connection.py      # Async SQLAlchemy SQLite engine
-│   │   ├── models.py          # Database ORM schema
-│   │   └── seed.py            # Seeding script with 30 experts across 10 categories
-│   ├── services/
-│   │   └── file_handler.py    # Strict digital product file validation rules
-│   ├── agents/
-│   │   ├── shared/
-│   │   │   ├── embedding.py   # Sentence-Transformers + FAISS manager
-│   │   │   ├── llm_client.py  # Groq API client with backoff retries & fallback
-│   │   │   └── types.py       # Pydantic v2 schemas
-│   │   ├── expert/            # Expert Onboarding State Graph
-│   │   └── client/            # Client Match State Graph
-│   └── api/                   # FastAPI route controllers
-└── nexus-frontend/
-    ├── app/                   # Next.js App Router pages (onboard, find, dashboard)
-    ├── components/            # UI Components (ChatInterface, PreviewCard, MatchCard, etc.)
-    └── lib/                   # API client and TypeScript definitions
-```
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:8000`
+
+---
+
+## 📡 7. API Reference Overview
+
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `POST /api/v1/auth/verify` | `POST` | Verifies Firebase ID token or dev authentication session |
+| `GET /api/v1/users/me` | `GET` | Returns active user profile context & personalized NEXUS greeting |
+| `POST /api/v1/expert/generate-profile` | `POST` | Extracts structured profile draft from natural language expertise description |
+| `POST /api/v1/expert/publish-profile` | `POST` | Saves structured profile to Firestore / DataAdapter & updates FAISS index |
+| `POST /api/v1/expert/generate-offering` | `POST` | Parses natural language offering brief into structured properties with file rules |
+| `POST /api/v1/expert/publish-offering` | `POST` | Validates file upload rules and publishes offering to Firestore |
+| `POST /api/v1/expert/upload-file` | `POST` | Uploads digital product / book attachment placeholder |
+| `POST /api/v1/client/find-experts` | `POST` | FAISS vector search + Groq reasoning ranker (returns matches or clarification pills) |
+| `GET /api/v1/health` | `GET` | Operational health check returning status of DataAdapter, Groq API, and FAISS index count |
+
+---
+
+## 🔒 8. Security & License
+
+- Built for **Aartec / MindGigs.com**.
+- Zero API keys or service credentials committed to repository.

@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  nexus-backend:
+    build:
+      context: ./nexus-backend
+      dockerfile: Dockerfile
+    container_name: nexus-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - LLM_PROVIDER=groq
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_FAST_MODEL=mixtral-8x7b-32768
+      - GROQ_PREMIUM_MODEL=llama-3.3-70b-versatile
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - EMBEDDING_DIM=384
+      - DATABASE_URL=sqlite+aiosqlite:///./nexus.db
+      - SECRET_KEY=nexus_mindgigs_super_secret_key_2026_change_in_prod
+    volumes:
+      - ./nexus-backend/uploads:/app/uploads
+    restart: unless-stopped
+
+  nexus-frontend:
+    build:
+      context: ./nexus-frontend
+      dockerfile: Dockerfile
+    container_name: nexus-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1
+      - NEXT_PUBLIC_FIREBASE_API_KEY=${NEXT_PUBLIC_FIREBASE_API_KEY}
+      - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+      - NEXT_PUBLIC_FIREBASE_PROJECT_ID=${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+    depends_on:
+      - nexus-backend
+    restart: unless-stopped
