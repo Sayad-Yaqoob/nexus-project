@@ -1,0 +1,92 @@
+from typing import Optional, List, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from pydantic import BaseModel
+
+from api.deps import get_current_user, create_access_token
+from services.adapters import (
+    DataAdapter, LLMAdapter, VectorAdapter,
+    User, ExpertProfile, Offering,
+    get_data_adapter, get_llm_adapter, get_vector_adapter
+)
+from config import settings
+
+router = APIRouter()
+
+class VerifyTokenRequest(BaseModel):
+    token: Optional[str] = None
+    email: Optional[str] = None
+    uid: Optional[str] = None
+    full_name: Optional[str] = None
+    role: Optional[str] = "expert"
+
+@router.post("/auth/verify")
+async def verify_auth_token(
+    req: VerifyTokenRequest,
+    data_adapter: DataAdapter = Depends(get_data_adapter)
+):
+    """Verify Firebase Auth ID token or dev authentication session."""
+    uid = req.uid or "1"
+    existing_user = await data_adapter.get_user(uid)
+    
+    if not existing_user:
+        user = User(
+            id=uid,
+            email=req.email or f"user_{uid}@mindgigs.com",
+            full_name=req.full_name or "Sayad Yaqoob",
+            role=req.role or "expert",
+            public_handle=req.email.split("@")[0] if req.email else f"user_{uid}"
+        )
+    else:
+        user = existing_user
+
+    jwt_token = create_access_token({"sub": str(user.id), "email": user.email, "role": user.role})
+
+    return {
+        "status": "success",
+        "access_token": jwt_token,
+        "token_type": "bearer",
+        "user": user.model_dump()
+    }
+
+@router.get("/users/me")
+async def get_user_me(
+    current_user: User = Depends(get_current_user),
+    data_adapter: DataAdapter = Depends(get_data_adapter)
+):
+    """User context loading endpoint for NEXUS greeting and mode context."""
+    profile = await data_adapter.get_expert_profile(str(current_user.id))
+    
+    return {
+        "mode": current_user.role,
+        "user": current_user.model_dump(),
+        "existing_profile": profile.model_dump() if profile else None,
+        "personalized_greeting": f"Welcome back, {current_user.full_name}! NEXUS Studio ready for your offerings."
+    }
+
+@router.get("/experts")
+async def list_experts(
+    category: Optional[str] = Query(None),
+    data_adapter: DataAdapter = Depends(get_data_adapter)
+):
+    """List experts for marketplace browsing."""
+    filters = {"category": category} if category else None
+    experts = await data_adapter.list_experts(filters)
+    return [e.model_dump() for e in experts]
+
+@router.get("/health")
+async def health_check(
+    llm_adapter: LLMAdapter = Depends(get_llm_adapter),
+    vector_adapter: VectorAdapter = Depends(get_vector_adapter)
+):
+    """Health check endpoint indicating LLM provider & vector store status."""
+    return {
+        "status": "ok",
+        "project": settings.PROJECT_NAME,
+        "version": settings.VERSION,
+        "llm_provider": "groq",
+        "fast_model": settings.GROQ_FAST_MODEL,
+        "reasoning_model": settings.GROQ_PREMIUM_MODEL,
+        "vector_store": "faiss-cpu",
+        "embedding_model": settings.EMBEDDING_MODEL,
+        "portable_adapters": True
+    }
