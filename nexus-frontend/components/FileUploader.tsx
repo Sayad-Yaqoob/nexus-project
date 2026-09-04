@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { UploadCloud, File, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { apiUrl } from '@/lib/api';
 
 interface FileUploaderProps {
   allowedTypes?: string[];
@@ -24,7 +25,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const allowedStr = allowedTypes && allowedTypes.length > 0 ? allowedTypes.map(t => `.${t}`).join(', ') : '.pdf, .zip, .xlsx, .docx, .csv';
+  const allowedStr = allowedTypes && allowedTypes.length > 0 ? allowedTypes.map(t => `.${t}`).join(', ') : '.pdf, .zip';
 
   const handleFileChange = async (file: File | null) => {
     if (!file) return;
@@ -48,8 +49,9 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('offer_type', offerType);
 
-      const res = await fetch('/api/v1/expert/upload-file', {
+      const res = await fetch(apiUrl('/expert/upload-file'), {
         method: 'POST',
         body: formData
       }).then(r => r.json());

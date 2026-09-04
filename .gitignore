@@ -220,6 +220,7 @@ __marimo__/
 # NEXUS Specific Ignores
 .env
 .env.local
+.venv/
 .env.*.local
 *.db
 *.sqlite
@@ -231,4 +232,8 @@ nexus-frontend/node_modules/
 firebase-credentials.json
 uploads/*
 !uploads/.gitkeep
+
+# The frontend's TypeScript source uses a conventional lib/ directory.
+!nexus-frontend/lib/
+!nexus-frontend/lib/**
 

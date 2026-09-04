@@ -15,11 +15,6 @@ export const FloatingBubble: React.FC = () => {
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const bubbleRef = useRef<HTMLDivElement>(null);
 
-  // Don't display floating bubble on the /nexus full page workspace or /login
-  if (pathname === '/nexus' || pathname === '/login') {
-    return null;
-  }
-
   useEffect(() => {
     // Load saved position from localStorage
     const saved = localStorage.getItem('nexus_bubble_pos');
@@ -36,6 +31,11 @@ export const FloatingBubble: React.FC = () => {
       y: window.innerHeight - 70
     });
   }, []);
+
+  // Keep this after hooks so client-side navigation never changes hook order.
+  if (pathname === '/nexus' || pathname === '/login') {
+    return null;
+  }
 
   const handleMouseDown = (e: React.MouseEvent) => {
     isDraggingRef.current = false;

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Sparkles, Check, Send, UserCheck, AlertCircle, Edit3, Eye, Tag, PlusCircle, FileText, Lock } from 'lucide-react';
 import { FileUploader } from '@/components/FileUploader';
 import { useAuth } from '@/components/layout/AuthContext';
+import { apiUrl } from '@/lib/api';
 
 export const ExpertStudio: React.FC = () => {
   const { userContext } = useAuth();
@@ -53,7 +54,7 @@ export const ExpertStudio: React.FC = () => {
     setLoading(true);
 
     try {
-      const res: any = await fetch('/api/v1/expert/generate-profile', {
+      const res: any = await fetch(apiUrl('/expert/generate-profile'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ raw_description: rawDescription })
@@ -92,7 +93,7 @@ export const ExpertStudio: React.FC = () => {
 
     try {
       const tagsArray = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
-      await fetch('/api/v1/expert/publish-profile', {
+      await fetch(apiUrl('/expert/publish-profile'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -122,7 +123,7 @@ export const ExpertStudio: React.FC = () => {
     setOfferingLoading(true);
 
     try {
-      const res: any = await fetch('/api/v1/expert/generate-offering', {
+      const res: any = await fetch(apiUrl('/expert/generate-offering'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ raw_description: rawOfferingText })
@@ -150,7 +151,7 @@ export const ExpertStudio: React.FC = () => {
       setOfferingDuration(isDigital ? "N/A" : "60 min");
       setOfferingDescription(rawOfferingText);
       setFileRequired(isDigital);
-      setAllowedFileTypes(isDigital ? ["pdf", "zip", "xlsx", "docx", "csv"] : []);
+      setAllowedFileTypes(isDigital ? ["pdf", "zip"] : []);
       setFilePath(null);
       setHasGeneratedOffering(true);
     } finally {
@@ -174,7 +175,7 @@ export const ExpertStudio: React.FC = () => {
     setOfferingPublishing(true);
 
     try {
-      const res: any = await fetch('/api/v1/expert/publish-offering', {
+      const res: any = await fetch(apiUrl('/expert/publish-offering'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

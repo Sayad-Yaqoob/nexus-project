@@ -1,6 +1,6 @@
 import json
 from typing import Optional, List, Union
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel, Field
 
 from api.deps import get_current_user
@@ -224,9 +224,12 @@ async def publish_offering(
     }
 
 @router.post("/expert/upload-file")
-async def upload_file(file: UploadFile = File(...)):
-    """Upload product file placeholder and return path."""
+async def upload_file(file: UploadFile = File(...), offer_type: str = Form("Digital Product")):
+    """Validate and upload a required Digital Product or Book attachment."""
     content = await file.read()
+    is_valid, message = file_handler.validate_upload(offer_type, file.filename or "", len(content))
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=message)
     file_path = file_handler.save_file_placeholder(file.filename, content)
     return {
         "status": "success",

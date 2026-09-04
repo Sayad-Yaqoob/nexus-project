@@ -456,8 +456,11 @@ MOCK_EXPERTS = [
     }
 ]
 
+SEED_EXPERTS = MOCK_EXPERTS[:24]
+
+
 async def seed_database():
-    """Seed the database with 30 mock experts if database is empty."""
+    """Seed the database with 24 realistic expert profiles if database is empty."""
     await init_db()
     
     async with AsyncSessionLocal() as session:
@@ -469,9 +472,9 @@ async def seed_database():
             print(f"[SEED] Database already populated with {len(existing_users)} users. Skipping seed.")
             return
 
-        print(f"[SEED] Seeding {len(MOCK_EXPERTS)} expert profiles across 10 categories...")
+        print(f"[SEED] Seeding {len(SEED_EXPERTS)} expert profiles across 10 categories...")
         
-        for data in MOCK_EXPERTS:
+        for data in SEED_EXPERTS:
             user = User(
                 email=data["email"],
                 full_name=data["full_name"],
@@ -525,7 +528,7 @@ async def seed_database():
         session.add(demo_client)
 
         await session.commit()
-        print("[SEED] Successfully seeded database with 30 experts and 1 demo client!")
+        print("[SEED] Successfully seeded database with 24 experts and 1 demo client!")
 
 if __name__ == "__main__":
     asyncio.run(seed_database())

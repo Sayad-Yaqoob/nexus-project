@@ -4,7 +4,6 @@ import React from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
-import { FloatingBubble } from '@/components/layout/FloatingBubble';
 import { Clock, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
@@ -38,8 +37,6 @@ export default function DummyPage() {
           </Link>
         </main>
       </div>
-
-      <FloatingBubble />
     </div>
   );
 }

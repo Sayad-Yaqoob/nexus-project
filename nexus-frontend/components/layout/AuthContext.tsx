@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { auth, logoutFirebase } from '@/lib/firebase';
-import { api } from '@/lib/api';
+import { api, apiUrl } from '@/lib/api';
 
 interface UserProfile {
   id: string;
@@ -50,7 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchContext = async () => {
     try {
-      const data: any = await fetch('/api/v1/users/me', {
+      const data: any = await fetch(apiUrl('/users/me'), {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       }).then(r => r.json()).catch(() => null);
       if (data && data.user) {
@@ -80,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setToken(idToken);
           api.setToken(idToken);
 
-          const res: any = await fetch('/api/v1/auth/verify', {
+          const res: any = await fetch(apiUrl('/auth/verify'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
             body: JSON.stringify({

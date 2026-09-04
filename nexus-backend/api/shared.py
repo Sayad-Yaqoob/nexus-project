@@ -98,6 +98,7 @@ async def health_check(
         "reasoning_model": settings.GROQ_PREMIUM_MODEL,
         "vector_store": "faiss-cpu",
         "embedding_model": settings.EMBEDDING_MODEL,
-        "faiss_index_count": len(experts),
+        "faiss_index_count": getattr(getattr(vector_adapter, "_index", None), "ntotal", 0),
+        "expert_record_count": len(experts),
         "portable_adapters": True
     }

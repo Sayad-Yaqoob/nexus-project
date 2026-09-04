@@ -11,13 +11,13 @@ class FileHandler:
         'Subscription': {'required': False, 'allowed_types': []},
         'Digital Product': {
             'required': True, 
-            'allowed_types': ['pdf', 'zip', 'xlsx', 'pptx', 'docx', 'csv'], 
+            'allowed_types': ['pdf', 'zip'],
             'max_size_mb': 50
         },
         'Custom Offer': {'required': False, 'allowed_types': []},
         'Book': {
             'required': True, 
-            'allowed_types': ['pdf'], 
+            'allowed_types': ['pdf', 'zip'],
             'max_size_mb': 80
         },
         'Highlight': {'required': False, 'allowed_types': ['png', 'jpg']},
@@ -52,6 +52,19 @@ class FileHandler:
             allowed_str = ", ".join(allowed_types)
             return False, f"Invalid file format '.{ext}'. Supported formats for '{offer_type}' are: {allowed_str}."
 
+        return True, ""
+
+    def validate_upload(self, offer_type: str, filename: str, size_bytes: int) -> Tuple[bool, str]:
+        """Validate a physical upload before it is written to local storage."""
+        rule = self.OFFER_TYPE_FILE_RULES.get(offer_type, {'required': False, 'allowed_types': []})
+        extension = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+        allowed_types = rule.get('allowed_types', [])
+        if allowed_types and extension not in allowed_types:
+            return False, f"Invalid file format '.{extension}'. Supported formats for '{offer_type}' are: {', '.join(allowed_types)}."
+
+        max_size_mb = rule.get('max_size_mb')
+        if max_size_mb and size_bytes > max_size_mb * 1024 * 1024:
+            return False, f"File size exceeds the {max_size_mb}MB limit for '{offer_type}'."
         return True, ""
 
     def save_file_placeholder(self, filename: str, content: bytes) -> str:

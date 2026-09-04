@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Sparkles, Search, CheckCircle2, ArrowRight, Zap, Star, HelpCircle } from 'lucide-react';
+import { apiUrl } from '@/lib/api';
 
 interface ClarificationQuestion {
   id: string;
@@ -64,7 +65,7 @@ export const ClientMatch: React.FC = () => {
     setLoading(true);
 
     try {
-      const res: any = await fetch('/api/v1/client/find-experts', {
+      const res: any = await fetch(apiUrl('/client/find-experts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ raw_problem: queryText })
