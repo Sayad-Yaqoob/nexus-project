@@ -93,7 +93,7 @@ class GroqAdapter(LLMAdapter):
                             if delay > 0:
                                 await asyncio.sleep(delay)
                         else:
-                            print(f"[GroqAdapter ERROR] API error HTTP {response.status_code}: {response.text}")
+                            print(f"[GroqAdapter ERROR] API error HTTP {response.status_code} for model {model}: {response.text}")
                             break
                     except Exception as e:
                         print(f"[GroqAdapter] Request error ({e}). Retrying in {delay}s...")

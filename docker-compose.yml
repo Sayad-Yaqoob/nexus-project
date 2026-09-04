@@ -6,11 +6,12 @@ services:
       context: ./nexus-backend
       dockerfile: Dockerfile
     container_name: nexus-backend
+    env_file:
+      - ./nexus-backend/.env
     ports:
       - "8000:8000"
     environment:
       - LLM_PROVIDER=groq
-      - GROQ_API_KEY=${GROQ_API_KEY}
       - GROQ_FAST_MODEL=openai/gpt-oss-20b
       - GROQ_PREMIUM_MODEL=openai/gpt-oss-120b
       - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2

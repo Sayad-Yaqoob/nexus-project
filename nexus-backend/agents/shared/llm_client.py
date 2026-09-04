@@ -44,7 +44,7 @@ class LLMClient:
         models_to_try = [
             model_name,
             settings.GROQ_FALLBACK_PREMIUM_MODEL if use_premium_model else settings.GROQ_FALLBACK_FAST_MODEL,
-            "llama-3.1-8b-instant"
+            "openai/gpt-oss-20b"
         ]
 
         last_exception = None
