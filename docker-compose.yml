@@ -11,8 +11,8 @@ services:
     environment:
       - LLM_PROVIDER=groq
       - GROQ_API_KEY=${GROQ_API_KEY}
-      - GROQ_FAST_MODEL=mixtral-8x7b-32768
-      - GROQ_PREMIUM_MODEL=llama-3.3-70b-versatile
+      - GROQ_FAST_MODEL=openai/gpt-oss-20b
+      - GROQ_PREMIUM_MODEL=openai/gpt-oss-120b
       - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
       - EMBEDDING_DIM=384
       - DATABASE_URL=sqlite+aiosqlite:///./nexus.db

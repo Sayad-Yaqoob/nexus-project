@@ -11,11 +11,11 @@ class Settings(BaseSettings):
     
     # Groq API Configuration
     GROQ_API_KEY: str = ""
-    # Recommended Groq models for structured extraction & deep reasoning
-    GROQ_FAST_MODEL: str = "mixtral-8x7b-32768"
-    GROQ_PREMIUM_MODEL: str = "llama-3.3-70b-versatile"
-    GROQ_FALLBACK_FAST_MODEL: str = "llama-3.1-8b-instant"
-    GROQ_FALLBACK_PREMIUM_MODEL: str = "llama3-70b-8192"
+    # Current Groq models for structured extraction and deep reasoning
+    GROQ_FAST_MODEL: str = "openai/gpt-oss-20b"
+    GROQ_PREMIUM_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_FALLBACK_FAST_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_FALLBACK_PREMIUM_MODEL: str = "openai/gpt-oss-20b"
     
     # Embedding & Vector Search
     EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
