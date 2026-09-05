@@ -1,163 +1,142 @@
-# NEXUS — Agentic Sales Growth System for MindGigs
+# mindGigs — Powered by NEXUS
 
-> **API-First. Portable by Design. Zero Local LLM Dependency.**  
-> Second-Generation Agentic Marketplace Engine built for MindGigs.
-
----
-
-## 🎯 1. Project Vision
-
-NEXUS is a portable, API-first agentic sales growth engine built for **MindGigs** (a dual-sided marketplace where Experts sell digital services & Clients buy solutions). 
-
-While generic chatbot wrappers fail because they lack personal context and structured output, NEXUS solves this by combining **Groq API high-speed LLMs**, **local FAISS vector embeddings**, and an **abstract Adapter Architecture** to deliver two primary workflows:
-
-1. **Expert Studio**: Guided workspace that converts raw natural language descriptions into structured profile drafts, offering listings, file validation rules, and live preview cards published to Firestore.
-2. **Client Match**: Interactive matching engine that converts client problem briefs into 3D FAISS vector embeddings, ranks top 3 expert matches via Groq reasoning, and presents interactive clarification pills for broad queries.
+> **The Intelligent Marketplace for On-Demand Expertise & Agentic Operations.**  
+> Second-Generation Agentic Marketplace Engine built for **mindGigs**.
 
 ---
 
-## ✨ 2. Features Matrix
+## 🎯 1. Product Identity & Vision
 
-| Feature | Description | Technology |
+**mindGigs** is a dual-sided expertise marketplace where specialists sell advisory services, courses, subscriptions, and digital products, while clients discover solutions for technical and strategic challenges.
+
+**NEXUS** is the agentic operating layer embedded inside mindGigs. Rather than acting as a generic chatbot, NEXUS operates over real application context:
+- **Natural language for intent.**
+- **Structured UI for precision.**
+- **Real application state for truth.**
+
+```text
+                    mindGigs
+                       │
+             ┌─────────┴─────────┐
+             │                   │
+        Marketplace          NEXUS
+             │                   │
+     Clients + Experts     Intelligent Agentic OS
+             │                   │
+             └─────────┬─────────┘
+                       │
+              Real SQLite Backend
+```
+
+---
+
+## 🏗️ 2. Core Architecture & Agentic OS
+
+NEXUS operates as an explicit Agentic Operating System built around:
+
+1. **`AgentContext`**: A structured context object passed on every request tracking authenticated user identity, account capabilities, current perspective (Client vs Expert), current route/screen, and selected entity.
+2. **`CapabilityRegistry`**: 22 registered application operations (`create_1_to_1`, `create_subscription`, `create_book`, `create_digital_product`, `create_custom_offering`, `create_highlight`, `update_offering`, `delete_offering`, `search_experts`, `create_booking`, `get_my_bookings`, `get_incoming_bookings`, `get_earnings`, `navigate_to_screen`, `update_availability`, etc.).
+3. **`TaskStateMachine`**: Explicit task lifecycle (`IDLE` -> `UNDERSTANDING` -> `COLLECTING_INFO` -> `PREVIEW_SHOWN` -> `AWAITING_CONFIRMATION` -> `EXECUTING` -> `VERIFYING` -> `COMPLETED`). Ensures completed tasks reset active task state so future prompts start fresh without stale contamination.
+4. **Backend Authorization Matrix**: Permissions are enforced on the backend (`deps.py` & `nodes.py`). Client accounts cannot create/edit offerings or access expert earnings, receiving polite permission responses.
+5. **Verified Writes**: Persistent operations execute real SQLite database operations (`nexus.db`), read back the record, and verify state before returning `action_success`.
+
+---
+
+## 📦 3. Features & Offering Workflows
+
+| Offering Type | Mapped Capabilities & Fields | Verification & Delivery |
 | :--- | :--- | :--- |
-| **Groq API LLM Extraction** | Converts natural language expertise into structured headlines, bios, categories, and skill tags | `mixtral-8x7b-32768` |
-| **Groq Reasoning Ranker** | Generates personalized high-impact match reasoning lines for top expert recommendations | `llama-3.3-70b-versatile` |
-| **Local FAISS Vector Search** | Sub-millisecond vector similarity search over expert profiles & offerings | `faiss-cpu` + `all-MiniLM-L6-v2` |
-| **File Validation Engine** | Enforces mandatory file attachments for Digital Products (PDF/ZIP/XLSX ≤ 50MB) & Books (PDF ≤ 80MB) | `file_handler.py` |
-| **Client Clarification Loop** | Detects broad/ambiguous client queries and renders selectable inline clarification pills | FastAPI + React |
-| **Portable Adapter Layer** | One `.env` line swaps Data, LLM, or Vector providers without touching business logic | Python Abstract Base Classes |
-| **Graceful Degradation** | Automatically degrades to rule-based logic & template forms on 429 rate limits | Exponential Backoff (2s → 16s) |
-| **MindGigs Design System** | Light off-white canvas (`#F8F9FA`), dark navy sidebar (`#0B1320`), mint green accents (`#00C49F`) | Next.js 16 + Tailwind CSS |
-| **Draggable Floating Bubble** | Floating AI assistant button on non-NEXUS pages with position saved to `localStorage` | HTML5 Drag & Drop API |
+| **1:1 Session** | Title, description, price, duration, weekly schedule, timezone | Real DB write + calendar slot availability |
+| **Subscription** | Plan title, monthly price, description, included benefits (list), active toggle | Real DB write + subscription manager refresh |
+| **Book** | Cover images, title, author, tagline, price, overview, Buy Now (PDF <= 80MB), Amazon Link, Custom Link | Real DB write + file upload validation |
+| **Digital Product** | Title, price, description, file upload (PDF/ZIP/XLSX/PPTX <= 50MB) or external link | Real DB write + file attachment rule |
+| **Custom Offering** | Title, price, description, CTA options | Real DB write + custom service quote |
+| **Highlight** | Title, image URL, link URL, listed status | Real DB write + profile highlight card |
 
 ---
 
-## 🏗️ 3. Architecture Diagram
+## 🔌 4. Tech Stack
 
-```
-                 +-------------------------------------------------------+
-                 |                   NEXUS FRONTEND                      |
-                 |      Next.js 16 (Turbopack) + Tailwind CSS + Auth     |
-                 |  - /nexus Workspace (Expert Studio | Client Match)    |
-                 |  - Draggable Floating Bubble & MindGigs Sidebar Nav    |
-                 +---------------------------+---------------------------+
-                                             |
-                                  REST API / JSON (Bearer ID Token)
-                                             v
-                 +-------------------------------------------------------+
-                 |                    FASTAPI BACKEND                    |
-                 |  - /api/v1/expert/generate-profile                    |
-                 |  - /api/v1/expert/generate-offering & publish         |
-                 |  - /api/v1/client/find-experts (FAISS + Reasoning)    |
-                 |  - /api/v1/health & /api/v1/users/me                  |
-                 +---------------------------+---------------------------+
-                                             |
-                          DEPENDENCY INJECTION ADAPTER LAYER
-                                             |
-       +-------------------------------------+-------------------------------------+
-       |                                     |                                     |
-       v                                     v                                     v
-+---------------+                     +---------------+                     +---------------+
-|  DataAdapter  |                     |  LLMAdapter   |                     | VectorAdapter |
-+---------------+                     +---------------+                     +---------------+
-| Firestore /   |                     | Groq API      |                     | FAISS-CPU +   |
-| SQLite Local  |                     | (mixtral-8x7b |                     | sentence-     |
-| Fallback      |                     |  llama-3.3)   |                     | transformers  |
-+---------------+                     +---------------+                     +---------------+
-```
-
----
-
-## 🔌 4. Plug-and-Play Adapter Guide
-
-NEXUS is designed for complete portability between developer environments and Aartec's production infrastructure. Every external service lives behind an Abstract Base Class in `nexus-backend/services/adapters/base.py`.
-
-### Swapping Firebase Projects
-To switch data persistence from your dev project to Aartec's production Firebase, simply update `.env`:
-
-```env
-# Change this in .env:
-FIREBASE_PROJECT_ID=aartec-production-firebase-id
-FIREBASE_CREDENTIALS_PATH=./production-firebase-credentials.json
-```
-
-**Zero code changes required.** If Firebase Admin credentials are not supplied, `FirestoreAdapter` automatically falls back to local SQLite execution (`sqlite+aiosqlite:///./nexus.db`).
-
-### Swapping LLM Providers
-To switch LLM execution from Groq to OpenAI or another provider in the future:
-1. Implement `OpenAIAdapter(LLMAdapter)` inheriting from `services.adapters.base.LLMAdapter`.
-2. Update `.env`: `LLM_PROVIDER=openai`.
+- **Backend**: Python 3.10+, FastAPI, Pydantic v2, SQLAlchemy, SQLite (`aiosqlite`), LangGraph, Groq LLM API, FAISS CPU vector index, `sentence-transformers` (`all-MiniLM-L6-v2`).
+- **Frontend**: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Lucide Icons.
 
 ---
 
 ## 🚀 5. Local Quickstart
 
 ### Prerequisites
-- Node.js 18+ & npm
 - Python 3.10+
-- Groq API Key (Free tier at [console.groq.com](https://console.groq.com))
+- Node.js 18+ & npm
+- Groq API Key (Free at [console.groq.com](https://console.groq.com))
 
-### 1. Clone & Configure Environment
+### 1. Configure Environment
 ```bash
 cp .env.example .env
 ```
-
 Set your `GROQ_API_KEY` in `.env`:
 ```env
 GROQ_API_KEY=gsk_your_groq_api_key_here
 ```
 
-### 2. Run Backend (FastAPI)
+### 2. Run FastAPI Backend
 ```bash
 cd nexus-backend
 python -m venv venv
-# On Windows: venv\Scripts\activate
-# On Linux/macOS: source venv/bin/activate
+# On Windows PowerShell:
+venv\Scripts\activate
 
 pip install -r requirements.txt
 python main.py
 ```
-Backend API will start at: `http://localhost:8000` (Docs at `http://localhost:8000/docs`).
+Backend API starts at `http://localhost:8000` (API Docs at `http://localhost:8000/docs`).
 
-### 3. Run Frontend (Next.js)
+### 3. Run Next.js Frontend
 ```bash
 cd nexus-frontend
 npm install
 npm run dev
 ```
-Frontend App will start at: `http://localhost:3000` (Redirects to `/nexus`).
+Frontend App starts at `http://localhost:3000`.
 
 ---
 
-## 🐳 6. Docker Compose Orchestration
+## 🧪 6. Test Suite & Verification
 
-Run both frontend and backend in isolated containers with Docker Compose:
-
+### Run Backend Pytest Suite
 ```bash
-docker-compose up --build
+cd nexus-backend
+venv\Scripts\python -m pytest -o pythonpath=. tests/test_golden_paths.py
 ```
-- Frontend: `http://localhost:3000`
-- Backend: `http://localhost:8000`
+*Executes all 6 test suites covering Golden Path A (1:1), B (Subscription), C (Book), D (Client Search), E (Booking), F (Edit), G (Navigation), Authorization Restrictions, and State Contamination Regression.*
+
+### Run Frontend Static Build Check
+```bash
+cd nexus-frontend
+npm.cmd run build
+```
+*Verifies Next.js production compilation and TypeScript type checking.*
 
 ---
 
-## 📡 7. API Reference Overview
+## 📡 7. Main API Endpoints
 
 | Endpoint | Method | Description |
 | :--- | :--- | :--- |
-| `POST /api/v1/auth/verify` | `POST` | Verifies Firebase ID token or dev authentication session |
-| `GET /api/v1/users/me` | `GET` | Returns active user profile context & personalized NEXUS greeting |
-| `POST /api/v1/expert/generate-profile` | `POST` | Extracts structured profile draft from natural language expertise description |
-| `POST /api/v1/expert/publish-profile` | `POST` | Saves structured profile to Firestore / DataAdapter & updates FAISS index |
-| `POST /api/v1/expert/generate-offering` | `POST` | Parses natural language offering brief into structured properties with file rules |
-| `POST /api/v1/expert/publish-offering` | `POST` | Validates file upload rules and publishes offering to Firestore |
-| `POST /api/v1/expert/upload-file` | `POST` | Uploads digital product / book attachment placeholder |
-| `POST /api/v1/client/find-experts` | `POST` | FAISS vector search + Groq reasoning ranker (returns matches or clarification pills) |
-| `GET /api/v1/health` | `GET` | Operational health check returning status of DataAdapter, Groq API, and FAISS index count |
+| `POST /api/v1/auth/mimic` | `POST` | Authenticate dev demo persona (`client` or `expert`) |
+| `GET /api/v1/users/me` | `GET` | Fetch authenticated user profile & capabilities |
+| `POST /api/v1/agent/chat` | `POST` | Unified NEXUS Agent Chat endpoint (with `current_route` & `current_perspective`) |
+| `GET /api/v1/offerings` | `GET` | Fetch expert offerings |
+| `PUT /api/v1/offerings/{id}` | `PUT` | Update offering (Expert authorization enforced) |
+| `DELETE /api/v1/offerings/{id}` | `DELETE` | Delete offering (Expert authorization enforced) |
+| `GET /api/v1/bookings` | `GET` | List bookings (Client My Bookings vs Expert Incoming Bookings) |
+| `POST /api/v1/bookings` | `POST` | Create booking record in SQLite DB |
+| `GET /api/v1/earnings` | `GET` | Fetch expert earnings summary (Expert authorization enforced) |
+| `GET /api/v1/experts` | `GET` | List seeded marketplace experts |
+| `GET /api/v1/health` | `GET` | System health check & FAISS index count |
 
 ---
 
 ## 🔒 8. Security & License
 
-- Built for **Aartec / MindGigs.com**.
-- Zero API keys or service credentials committed to repository.
+- Built for **mindGigs.com** / Aartec.
+- Zero API keys or credentials committed to source control.

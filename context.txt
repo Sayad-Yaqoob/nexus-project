@@ -1,0 +1,2799 @@
+NEXUS MILESTONE 1
+Build the Working MindGigs Product and the NEXUS Agent Operating System
+
+You are working inside the existing NEXUS repository.
+
+This is not another patching pass.
+
+The previous implementations repeatedly produced a superficially functional chatbot that did not actually understand the MindGigs application, its capabilities, its current state, its user context, or its workflows. The result was stale actions, incorrect intent routing, hallucinated platform behavior, random conversational text, broken navigation, and UI that did not correspond to the actual application.
+
+We are changing the architecture.
+
+Your job in this milestone is to build a working, demonstrable MindGigs application with NEXUS as its agentic operating layer.
+
+The most important requirement is:
+
+NEXUS must understand the application before it attempts to act inside the application.
+
+Do not solve this by merely making the system prompt longer.
+
+Build the agent around explicit application context, capabilities, typed state, deterministic validation, structured actions, and strict output contracts.
+
+1. PRODUCT IDENTITY
+
+The product is:
+
+mindGigs, powered by NEXUS
+
+MindGigs is the marketplace/application.
+
+NEXUS is the intelligent agent embedded inside it.
+
+NEXUS is NOT:
+
+a standalone chatbot
+a "Find Experts" page
+a generic AI assistant
+a help-center bot
+a page that generates essays about what the user could do
+
+NEXUS is an operator over the MindGigs application.
+
+The user tells NEXUS what they want in natural language.
+
+NEXUS determines:
+
+who the user is
+what capabilities they have
+what screen they are currently on
+what they are currently doing
+what the user wants now
+which MindGigs capability can accomplish it
+what information is available
+what information is missing
+whether the operation is read-only or persistent
+what UI should be shown
+whether confirmation is required
+what actual backend operation must occur
+how to verify the result
+how to update the application UI
+
+The core principle is:
+
+Natural language for intent. Structured UI for precision. Real application state for truth.
+
+2. DO NOT BLINDLY PATCH THE CURRENT IMPLEMENTATION
+
+Before modifying code:
+
+Inspect the entire repository.
+
+Understand:
+
+frontend structure
+backend structure
+routing
+authentication
+current database models
+adapters
+services
+LangGraph implementation
+LLM integration
+vector search
+file handling
+existing API contracts
+existing UI components
+current agent state
+current tests
+seed data
+current broken flows
+
+Identify which existing components are reusable.
+
+Then refactor or replace broken architecture where necessary.
+
+Do NOT preserve an incorrect architecture merely because it already exists.
+
+Do NOT rebuild functioning infrastructure unnecessarily.
+
+The objective is not minimal code changes.
+
+The objective is a coherent working system.
+
+3. CURRENT REALITY
+
+The demo architecture is:
+
+MindGigs UI
+     ↓
+NEXUS Agent / Application Services
+     ↓
+DataAdapter
+     ↓
+SQLite demo database
+
+Current technology should remain where practical:
+
+Backend:
+
+Python
+FastAPI
+Pydantic
+SQLAlchemy
+SQLite / aiosqlite
+LangGraph
+Groq
+FAISS CPU
+sentence-transformers / all-MiniLM-L6-v2
+
+Frontend:
+
+Next.js
+App Router
+React
+TypeScript
+Tailwind CSS
+
+The production MindGigs system is WordPress.
+
+This demo does NOT have production WordPress/database access.
+
+Therefore:
+
+SQLite is the demo source of truth.
+Never claim to have modified live MindGigs.
+Never fake WordPress integration.
+Keep DataAdapter abstraction so a future WordPress adapter can replace SQLite.
+4. THE MOST IMPORTANT ARCHITECTURAL CHANGE
+NEXUS must have an explicit Application Context
+
+Every agent request must receive a structured context object.
+
+Conceptually:
+
+AgentContext
+
+authenticated_user
+account_capabilities
+current_perspective
+current_route
+current_screen
+selected_entity
+selected_offering
+selected_expert
+active_task
+conversation_history
+recent_application_actions
+relevant_user_data
+available_capabilities
+
+Example:
+
+{
+  "user": {
+    "id": "expert_7",
+    "name": "Carlos Gomez",
+    "is_client": true,
+    "is_expert": true
+  },
+  "capabilities": [
+    "client",
+    "expert"
+  ],
+  "perspective": "expert",
+  "route": "/sell/offers",
+  "screen": "my_offers",
+  "selected_entity": null,
+  "active_task": null
+}
+
+For a client-only user:
+
+{
+  "capabilities": ["client"],
+  "perspective": "client"
+}
+
+The LLM must NEVER infer authorization from the user's wording.
+
+The backend determines authorization.
+
+5. ACCOUNT MODEL
+
+There are exactly two demo login choices:
+
+Demo Client Login
+Demo Expert Login
+
+Do NOT create:
+
+Client
+Expert
+Client + Expert
+
+as three account types.
+
+An expert is a client who has gained expert/selling capabilities.
+
+Therefore:
+
+Client:
+BUY capabilities
+
+Expert:
+BUY capabilities
++
+SELL capabilities
+
+Expert accounts can switch perspective:
+
+Client | Expert
+
+Client-only accounts do not have a perspective toggle.
+
+Perspective changes conversational/application context.
+
+Perspective does NOT grant permissions.
+
+Backend authorization always uses actual account capabilities.
+
+6. APPLICATION SHELL
+
+The first experience must be a normal MindGigs application.
+
+Flow:
+
+Landing
+ ↓
+Login
+ ↓
+Demo Client Login / Demo Expert Login
+ ↓
+MindGigs application
+
+Do NOT land directly in a "Find Experts" interface.
+
+The application shell should resemble:
+
+mindGigs                         Search   NEXUS   User
+--------------------------------------------------------
+
+Overview
+
+BUY
+  Find Experts
+  My Bookings
+  My Purchases
+
+SELL                    ← expert only
+  Expert Profile
+  My Offers
+  Incoming Bookings
+  Earnings
+  1:1 Sessions
+  Subscriptions
+  Digital Products
+  Books
+  Highlights
+  Custom Offerings
+  Newsletter
+
+ACCOUNT
+  General
+  Notifications
+  Billing / Payouts
+
+Only show pages that are actually implemented.
+
+Never create dead navigation.
+
+The initial authenticated screen should be an Overview/Dashboard.
+
+NEXUS is accessible globally from the application.
+
+7. NEXUS MUST CONTROL NAVIGATION
+
+NEXUS must be capable of producing deterministic navigation actions.
+
+Example:
+
+User:
+
+Show my bookings.
+
+NEXUS must not respond:
+
+You can find your bookings in the sidebar.
+
+It must perform:
+
+intent = view_my_bookings
+
+capability = get_my_bookings
+
+navigate_to = /bookings
+
+load actual bookings
+
+render booking view
+
+The frontend executes the navigation instruction.
+
+Example structured response:
+
+{
+  "response_type": "navigation",
+  "navigation": {
+    "route": "/bookings"
+  },
+  "message": "Here are your bookings."
+}
+
+Navigation is not conversational fiction.
+
+It must actually change the application screen.
+
+8. NEXUS MUST CONTROL REAL FORMS
+
+This is a core requirement.
+
+When NEXUS creates or edits something, it should interact with the same actual application form used by the user.
+
+Do NOT create a second fake form system exclusively for chat.
+
+Architecture:
+
+NEXUS
+ ↓
+structured form state
+ ↓
+real MindGigs form component
+ ↓
+user reviews
+ ↓
+user edits if necessary
+ ↓
+confirmation
+ ↓
+shared backend service
+
+NEXUS can populate the actual form.
+
+The user can modify the populated fields.
+
+The same validation rules must apply whether the form was populated:
+
+manually
+by NEXUS
+partially by NEXUS
+9. FORM PREVIEW IS MANDATORY FOR PERSISTENT ACTIONS
+
+For creation/editing/deletion/booking/etc.:
+
+Natural language
+ ↓
+Extract
+ ↓
+Validate
+ ↓
+Populate actual form
+ ↓
+Show editable preview
+ ↓
+User edits if necessary
+ ↓
+User confirms
+ ↓
+Execute
+ ↓
+Verify
+ ↓
+Refresh application
+
+The user must be able to see exactly what will happen before it happens.
+
+Action cards/forms must support:
+
+Edit
+Cancel
+Confirm
+
+For example:
+
+Create Subscription
+
+Plan title
+[Author Growth Circle]
+
+Monthly price
+[$25]
+
+External link
+[ ]
+
+Description
+[ ]
+
+Benefits
+[+ Add Benefit]
+
+Active
+[✓]
+
+--------------------------------
+
+[Cancel] [Create Subscription]
+
+The user can change $25 to $30 without typing the entire request again.
+
+10. FILE UPLOADS ARE FIRST-CLASS AGENT CAPABILITIES
+
+NEXUS must be able to recognize when a workflow requires a file.
+
+The agent should NOT say:
+
+Upload the file somewhere and come back.
+
+Instead it should produce a structured upload request.
+
+Example:
+
+NEXUS:
+I can prepare the book listing. I still need the book PDF because
+"Buy Now" is enabled.
+
+Then render:
+
+Book PDF
+[ Upload PDF ]
+
+The user uploads the file.
+
+The file becomes part of the active task state.
+
+NEXUS continues the workflow.
+
+Files must go through the existing file validation system.
+
+Do not bypass validation.
+
+11. BUILD A CAPABILITY REGISTRY
+
+This is one of the most important changes.
+
+Do NOT build the agent around a giant:
+
+if intent == ...
+elif intent == ...
+elif intent == ...
+
+tree.
+
+Instead create a capability registry.
+
+Conceptually:
+
+Capability
+
+name
+description
+allowed_capabilities
+required_context
+required_fields
+optional_fields
+input_schema
+output_schema
+read_or_write
+requires_confirmation
+supported_routes
+service_function
+validation_function
+
+Examples:
+
+get_current_user
+get_profile
+update_profile
+get_offers
+create_1_to_1
+create_subscription
+create_digital_product
+create_book
+create_custom_offering
+create_highlight
+update_offering
+delete_offering
+get_availability
+update_availability
+search_experts
+get_expert_profile
+get_offering
+get_available_slots
+create_booking
+get_my_bookings
+get_incoming_bookings
+get_earnings
+navigate_to_screen
+
+The agent should reason over available capabilities rather than inventing operations.
+
+12. CAPABILITY BOUNDARY
+
+The LLM is allowed to:
+
+understand natural language
+classify intent
+extract entities
+identify the target
+decide which registered capability is relevant
+determine missing information
+construct structured arguments
+explain actual retrieved information
+generate grounded summaries
+
+The LLM is NOT allowed to:
+
+execute arbitrary SQL
+invent database records
+invent prices
+invent experts
+invent availability
+invent ratings
+invent reviews
+invent platform features
+invent policies
+invent UI controls
+invent form fields
+invent payment behavior
+claim an operation succeeded without verification
+decide authorization
+fabricate search results
+fabricate files
+fabricate completed actions
+
+The LLM proposes structured intent/action.
+
+Backend services validate and execute it.
+
+13. INTENT RESOLUTION
+
+Intent must be resolved before response generation.
+
+Use a structured intermediate representation.
+
+Conceptually:
+
+{
+  "intent": "create_offering",
+  "object": "subscription",
+  "operation": "create",
+  "target_id": null,
+  "extracted_fields": {
+    "title": null,
+    "price": 25
+  },
+  "missing_fields": [],
+  "confidence": 0.94
+}
+
+Another:
+
+{
+  "intent": "search_experts",
+  "query": "marketing and global book launch",
+  "constraints": [],
+  "target_id": null
+}
+
+Another:
+
+{
+  "intent": "update_offering",
+  "target_id": "offer_123",
+  "changes": {
+    "price": 25,
+    "currency": "USD"
+  }
+}
+
+The LLM should never directly decide the final UI response.
+
+14. INTENT TAXONOMY
+
+At minimum support:
+
+navigation
+general_question
+view_profile
+update_profile
+create_offering
+update_offering
+delete_offering
+
+create_subscription
+create_digital_product
+create_book
+create_custom_offering
+create_highlight
+create_1_to_1
+
+view_availability
+update_availability
+
+search_experts
+view_expert
+view_offering
+
+create_booking
+view_my_bookings
+view_incoming_bookings
+view_purchases
+view_earnings
+
+Do not make every message a search.
+
+This is critical.
+
+15. TASK STATE VS CONVERSATION HISTORY
+
+Fix the current stale-state problem.
+
+These are different concepts:
+
+Conversation history
+
+What the user and NEXUS previously said.
+
+Active task
+
+The operation currently being constructed.
+
+Last response
+
+What was displayed previously.
+
+Never use last_response as task state.
+
+A completed action must become inactive.
+
+Example:
+
+User:
+Create a 1:1 session for $500.
+
+active_task:
+create_1_to_1
+
+After:
+
+confirmed
+executed
+verified
+
+the task is:
+
+active_task = null
+
+Then:
+
+User:
+I need an expert who can market my new book.
+
+must begin:
+
+search_experts
+
+It must NEVER replay the previous creation response.
+
+16. TASK STATE MACHINE
+
+Use explicit task states.
+
+For example:
+
+IDLE
+ ↓
+UNDERSTANDING
+ ↓
+COLLECTING_INFORMATION
+ ↓
+READY_FOR_PREVIEW
+ ↓
+PREVIEW_SHOWN
+ ↓
+EDITING
+ ↓
+AWAITING_CONFIRMATION
+ ↓
+EXECUTING
+ ↓
+VERIFYING
+ ↓
+COMPLETED
+
+Failure:
+
+EXECUTING
+ ↓
+ERROR
+
+The task state must be explicit and inspectable.
+
+17. FOLLOW-UP RESOLUTION
+
+NEXUS must understand short follow-ups.
+
+Example:
+
+User:
+
+Create a marketing session.
+
+NEXUS:
+
+What price and duration should I use?
+
+User:
+
+$500, one hour.
+
+NEXUS must understand:
+
+price = 500
+duration = 60
+task = create_1_to_1
+
+It must not classify $500, one hour as a generic question.
+
+However, completed tasks must not contaminate future tasks.
+
+Example:
+
+Create session
+→ completed
+
+User:
+I need to publish my book for $300.
+
+This is:
+
+create_book
+
+NOT:
+
+update session
+
+And:
+
+I need an expert who can market my book.
+
+is:
+
+search_experts
+
+NOT:
+
+create_book
+18. TASK SWITCHING
+
+Explicitly support task switching.
+
+If the user changes objective:
+
+current task
+      ↓
+detect new objective
+      ↓
+close/suspend old task
+      ↓
+start new task
+
+Example:
+
+User:
+Create a 1:1 session.
+
+NEXUS:
+What price?
+
+User:
+Actually forget that. I need someone to market my book.
+
+
+
+The current task must be abandoned.
+
+NEXUS searches experts.
+
+Do not continue asking about the session price.
+
+19. PERSONALIZED CONTEXT
+
+NEXUS should understand the actual user.
+
+For an expert, context can include:
+
+profile completeness
+expertise
+availability
+offerings
+bookings
+earnings
+recent activity
+
+For a client:
+
+bookings
+purchases
+recent activity
+current searches
+
+If the user asks:
+
+What should I work on?
+
+NEXUS should inspect actual data.
+
+Example:
+
+Your profile is complete, but you have no availability configured
+and only one active offering.
+
+The next useful step is to configure your availability or add another
+offering.
+
+Only say this if the database actually confirms it.
+
+Never generate generic advice disconnected from application state.
+
+20. OFFER TYPES MUST REMAIN DISTINCT
+
+Do NOT collapse all offerings into 1:1 Session.
+
+Supported types:
+
+1:1 Session
+Subscription
+Digital Product
+Book
+Custom Offering
+Highlight
+
+Each has different fields and behavior.
+
+The agent must identify the correct type.
+
+21. 1:1 SESSION WORKFLOW
+
+Support:
+
+title
+description
+price
+currency
+duration
+availability
+timezone
+session-specific fields supported by the actual model
+
+Example:
+
+User:
+
+Create a 1:1 session for $500. I offer marketing strategy and related consulting. One hour.
+
+NEXUS should produce a real editable preview.
+
+Create 1:1 Session
+
+Title
+Marketing Strategy Session
+
+Description
+Marketing strategy and related consulting.
+
+Price
+$500
+
+Currency
+USD
+
+Duration
+60 minutes
+
+Availability
+[Edit schedule]
+
+[Cancel] [Create Session]
+
+Do not invent availability.
+
+If required by the actual business model, ask for it.
+
+If not required for creation, allow creation and make availability configurable.
+
+22. SUBSCRIPTION WORKFLOW
+
+Do not treat a subscription as a session.
+
+Use the actual mapped subscription fields.
+
+At minimum, support the confirmed workflow fields:
+
+plan image
+plan title
+monthly price
+external link
+description
+included benefits
+active plan
+
+Plan image is optional.
+
+External link is optional.
+
+Benefits are structured individual items.
+
+Example:
+
+User:
+
+Create a subscription plan for clients at $25 per month.
+
+NEXUS should understand:
+
+type = subscription
+monthly_price = 25
+
+Then ask only for required information that is genuinely missing.
+
+Do not invent a title if the application requires one.
+
+Then show the actual editable subscription form.
+
+User can edit.
+
+Then explicit confirmation.
+
+Then real database write.
+
+Then read back and verify.
+
+Then refresh the subscription manager.
+
+23. BOOK WORKFLOW
+
+Books are NOT digital products and NOT sessions.
+
+Use the actual mapped MindGigs Book workflow.
+
+Supported mapped fields include:
+
+Front cover
+Back cover
+Book title
+Author
+Tagline
+Price
+Overview
+Buy Now
+Book PDF
+Buy on Amazon
+Retailer Link
+Custom Button
+Button Label
+Button Link
+Listed for Sale
+
+Important conditional rules:
+
+If:
+
+Buy Now = enabled
+
+then:
+
+Book PDF = required
+
+The mapped workflow specifies PDF-only for the book PDF with an 80MB maximum.
+
+If:
+
+Buy on Amazon = enabled
+
+then:
+
+Retailer Link = required
+
+If:
+
+Custom Button = enabled
+
+then:
+
+Button Label = required
+Button Link = required
+
+Front and back covers are optional.
+
+At least one valid purchase channel must be enabled according to the mapped workflow.
+
+Do NOT invent additional fields.
+
+24. BOOK EXAMPLE
+
+User:
+
+I need to sell my new book for $300.
+
+NEXUS must understand:
+
+intent = create_offering
+type = book
+price = 300
+
+It must NOT create:
+
+1:1 Session
+
+It should inspect the Book form requirements.
+
+Then ask only for missing information.
+
+For example:
+
+I can prepare the book listing for $300.
+
+I still need:
+• Book title
+• Book PDF if you want Buy Now enabled
+
+You can also add front/back covers and retailer links.
+
+Then render the actual Book form.
+
+The user can upload files directly.
+
+After the required information is available:
+
+Book Preview
+
+Front Cover       [image/upload]
+Back Cover        [image/upload]
+
+Title             [My New Book]
+Author            [Carlos Gomez]
+Tagline           [...]
+Price             [$300]
+Overview          [...]
+
+Buy Now           [✓]
+Book PDF          [uploaded.pdf]
+
+Buy on Amazon     [ ]
+Custom Button     [ ]
+
+Listed for Sale   [✓]
+
+[Cancel] [Publish Book]
+
+Then confirmation.
+
+Then:
+
+create_book()
+ ↓
+database
+ ↓
+read back
+ ↓
+verify
+ ↓
+Books manager refresh
+ ↓
+profile refresh
+25. DIGITAL PRODUCT WORKFLOW
+
+Use the actual Digital Product mapping.
+
+The product must have:
+
+uploaded file
+OR
+external delivery link
+
+The mapped file types include:
+
+PDF
+ZIP
+XLSX
+PPTX
+DOCX
+CSV
+
+Maximum file size:
+
+50MB
+
+Reuse the existing file handler and validation.
+
+Do not invent delivery behavior.
+
+26. CUSTOM OFFERING
+
+Support the actual mapped Custom Offering workflow.
+
+Do not force it into a 1:1 session.
+
+It has its own concept, including:
+
+title
+price
+description
+category / CTA behavior
+installment configuration where supported
+
+Use the actual existing model/mapping.
+
+27. HIGHLIGHTS
+
+Support the actual mapped Highlight workflow.
+
+Fields:
+
+image
+title
+link
+listed
+
+Image is optional.
+
+Do not invent other fields.
+
+28. PROFILE MANAGEMENT
+
+NEXUS must be capable of reading and editing the expert profile.
+
+Use actual mapped fields.
+
+Relevant profile data includes:
+
+photo
+bio
+headline
+public handle
+expertise tags
+category
+social links
+availability
+timezone
+currency
+calendar state where implemented
+
+Do not ask for fields that are already present in the user's account.
+
+If a value exists, reuse it.
+
+29. AVAILABILITY MUST BE A STRUCTURED UI
+
+Do NOT make users describe schedules entirely as prose.
+
+Support:
+
+Monday
+Tuesday
+Wednesday
+Thursday
+Friday
+Saturday
+Sunday
+
+Each day:
+
+available
+start
+end
+
+Plus:
+
+timezone
+
+Create/reuse:
+
+AvailabilityEditor
+
+It must be usable from:
+
+Expert Profile
+NEXUS workflow
+Booking availability lookup
+
+Example:
+
+Weekly Availability
+
+MON  09:00 – 17:00   ✓
+TUE  09:00 – 17:00   ✓
+WED  Unavailable
+THU  09:00 – 17:00   ✓
+FRI  09:00 – 15:00   ✓
+SAT  Unavailable
+SUN  Unavailable
+
+Timezone
+Asia/Karachi
+
+The user can edit this visually.
+
+30. CLIENT EXPERT SEARCH
+
+Client requests should not automatically enter a generic chatbot response.
+
+Example:
+
+I need an expert who can help me market and launch my new book globally.
+
+NEXUS should:
+
+extract search intent
+ ↓
+build search query
+ ↓
+call search_experts
+ ↓
+VectorAdapter / FAISS
+ ↓
+actual seeded expert records
+ ↓
+rank
+ ↓
+return structured matches
+ ↓
+render ExpertMatchCards
+
+No generic essay.
+
+No arbitrary top 3.
+
+Return all relevant matches according to the ranking system.
+
+Frontend must support a scrollable result list.
+
+31. MATCH DATA MUST BE REAL
+
+Expert match cards may show:
+
+name
+headline
+category
+tags
+match score
+grounded match reasons
+relevant offering
+price
+duration
+
+But only if the information exists in the database.
+
+The explanation can be generated, but every claim must be grounded in retrieved data.
+
+Never invent:
+
+ratings
+reviews
+clients
+sales
+launch counts
+languages
+pricing
+availability
+certifications
+experience
+
+unless those values actually exist.
+
+32. SEARCH RESULT → PROFILE → OFFERING → BOOKING
+
+The complete client journey must work.
+
+Search
+ ↓
+Expert Match Card
+ ↓
+View Profile
+ ↓
+View Offering
+ ↓
+View Availability
+ ↓
+Select Slot
+ ↓
+Client Details
+ ↓
+Review
+ ↓
+Confirm
+ ↓
+Create Booking
+ ↓
+Verify
+ ↓
+Client My Bookings
+ ↓
+Expert Incoming Bookings
+
+All records must come from the same database.
+
+33. BOOKING
+
+A booking should contain the relevant actual fields, including:
+
+client_id
+expert_id
+offering_id
+session_type
+scheduled_datetime
+client_timezone
+expert_timezone
+status
+payment_status
+amount
+
+Availability must be calculated from actual expert availability.
+
+Do not invent slots.
+
+Client-facing time should be converted appropriately.
+
+If payment is simulated, label it:
+
+Demo Payment
+
+Never claim real payment was processed.
+
+34. AUTHORIZATION
+
+Authorization must be backend-enforced.
+
+Client-only users cannot:
+
+create expert offers
+edit expert offers
+delete expert offers
+manage expert profile
+manage expert availability
+view expert earnings
+view incoming expert bookings
+
+Expert users can perform both client and expert actions.
+
+Never rely solely on:
+
+frontend role
+perspective toggle
+hidden buttons
+
+to enforce permissions.
+
+35. STRUCTURED RESPONSE CONTRACT
+
+The backend must return a strict typed response contract.
+
+At minimum:
+
+greeting
+clarification
+action_preview
+action_success
+search_results
+profile
+offering
+booking
+earnings
+navigation
+general
+error
+
+Example:
+
+{
+  "response_type": "action_preview",
+  "message": "Review the subscription before I create it.",
+  "action": {
+    "action_type": "create_subscription",
+    "requires_confirmation": true
+  },
+  "form": {
+    "type": "subscription",
+    "fields": {}
+  }
+}
+
+The frontend renders the correct component.
+
+The LLM never controls the final HTML/UI.
+
+36. RESPONSE NORMALIZATION LAYER
+
+Even structured LLM output must be validated before reaching the frontend.
+
+Create a normalization layer:
+
+LLM output
+ ↓
+Pydantic schema validation
+ ↓
+Capability validation
+ ↓
+authorization validation
+ ↓
+business-rule validation
+ ↓
+response normalization
+ ↓
+frontend
+
+Reject invalid output.
+
+Strip unsupported claims.
+
+Never pass arbitrary LLM JSON directly to React.
+
+37. RESPONSE POLISHING
+
+Natural-language messages should be concise.
+
+Typical response:
+
+I have the details ready. Review the form below before I create it.
+
+Then the structured form.
+
+Do NOT produce:
+
+long explanations
+markdown essays
+AI-generated tutorials
+fake platform descriptions
+
+The structured UI is the primary result.
+
+38. GREETING
+
+Greetings must also use structured rendering.
+
+Never allow raw markdown such as:
+
+Hello **Carlos Gomez**
+
+to appear accidentally.
+
+Render:
+
+Hello, Carlos Gomez.
+What would you like to do?
+
+Use actual authenticated user information.
+
+39. RESPONSE TYPES MUST MAP TO COMPONENTS
+
+For example:
+
+greeting
+→ GreetingCard
+
+action_preview
+→ ActionCard / real form
+
+search_results
+→ ExpertMatchResults
+
+profile
+→ ExpertProfileCard
+
+offering
+→ OfferingCard
+
+booking
+→ BookingCard
+
+earnings
+→ EarningsCard
+
+navigation
+→ navigation handler
+
+error
+→ ErrorCard
+
+Centralize this in:
+
+ResponseRenderer
+
+No page should invent its own interpretation of agent responses.
+
+40. UI ACTION PROTOCOL
+
+Create a deterministic UI action protocol.
+
+NEXUS should be able to request actions such as:
+
+navigate
+open_form
+populate_form
+request_upload
+open_profile
+open_offering
+show_availability
+show_confirmation
+refresh_data
+
+The frontend executes these actions.
+
+Example:
+
+{
+  "ui_actions": [
+    {
+      "type": "navigate",
+      "route": "/sell/books"
+    },
+    {
+      "type": "open_form",
+      "form_type": "book",
+      "mode": "create"
+    },
+    {
+      "type": "populate_form",
+      "data": {
+        "price": 300
+      }
+    }
+  ]
+}
+
+This is how NEXUS actually "controls the website."
+
+The LLM does not manipulate DOM elements.
+
+It produces a constrained application action.
+
+41. SHARED BUSINESS LOGIC
+
+Do not implement one business logic path for NEXUS and another for manual UI.
+
+Use:
+
+NEXUS
+   ↓
+Service
+
+Manual UI
+   ↓
+Service
+
+Service
+   ↓
+DataAdapter
+   ↓
+Database
+
+Examples:
+
+create_offering()
+update_offering()
+delete_offering()
+
+create_subscription()
+create_book()
+create_digital_product()
+create_custom_offering()
+create_highlight()
+
+get_profile()
+update_profile()
+
+get_availability()
+update_availability()
+
+search_experts()
+get_expert_profile()
+
+get_available_slots()
+create_booking()
+
+get_my_bookings()
+get_incoming_bookings()
+get_earnings()
+42. DATABASE IS THE SOURCE OF TRUTH
+
+Frontend state may cache information.
+
+It must never become the authoritative marketplace state.
+
+Example:
+
+NEXUS creates offer
+ ↓
+SQLite
+ ↓
+My Offers
+ ↓
+Expert Profile
+
+The same record must appear everywhere.
+
+Similarly:
+
+create booking
+ ↓
+SQLite
+ ↙      ↘
+Client     Expert
+Bookings  Incoming Bookings
+
+Do not create frontend-only duplicate objects.
+
+43. VERIFY EVERY WRITE
+
+Every persistent operation must use:
+
+execute
+ ↓
+read back
+ ↓
+verify
+ ↓
+respond
+
+For example:
+
+create_book()
+ ↓
+get_book(id)
+ ↓
+verify title/price/status/etc.
+ ↓
+action_success
+
+For booking:
+
+create_booking()
+ ↓
+get_booking(id)
+ ↓
+verify
+ ↓
+success
+
+Never show:
+
+Created successfully
+
+because a function returned without throwing an exception.
+
+Success means the resulting state was verified.
+
+44. CONFIRMATION RULE
+
+Persistent changes require explicit confirmation.
+
+Examples:
+
+create offer
+update offer
+delete offer
+publish profile
+create booking
+cancel booking
+request payout
+
+Search/navigation/read operations do not require confirmation.
+
+45. EDITING EXISTING DATA
+
+When the user says:
+
+Change my subscription to $25/month.
+
+NEXUS must:
+
+understand update intent
+ ↓
+identify actual existing subscription
+ ↓
+read current record
+ ↓
+prepare update
+ ↓
+show editable preview
+ ↓
+confirm
+ ↓
+update correct record
+ ↓
+verify
+ ↓
+refresh
+
+Do NOT create a new subscription.
+
+If multiple records could match, ask a clarification question.
+
+Do not guess.
+
+46. NAVIGATION + CONTEXT MUST STAY SYNCHRONIZED
+
+Whenever the frontend changes route/screen, send the updated context to NEXUS.
+
+For example:
+
+route = /sell/books
+screen = books_manager
+
+If the user opens a particular book:
+
+selected_entity = book_17
+
+If the user opens an expert:
+
+selected_expert = expert_12
+
+This allows:
+
+Edit this book.
+
+to resolve to the actual selected book rather than searching randomly.
+
+47. DO NOT MAKE NEXUS A SEPARATE "MODE"
+
+Remove the conceptual model:
+
+NEXUS Studio
+Match Mode
+Expert Mode
+Client Mode
+
+NEXUS should be one agent.
+
+The user simply speaks.
+
+Context determines what is relevant.
+
+For an expert:
+
+Create a subscription.
+
+means expert capability.
+
+For the same expert:
+
+Find someone who can help me with my book launch.
+
+means client capability.
+
+No mode switch is required.
+
+Perspective may exist as part of application context, but the agent must still resolve intent naturally.
+
+48. QUICK ACTIONS
+
+Quick actions should be context-aware.
+
+Expert:
+
+Create Offer
+Edit Profile
+Update Availability
+View Bookings
+View Earnings
+
+Client:
+
+Find Experts
+My Bookings
+My Purchases
+
+Never show an action the user cannot perform.
+
+49. DEMO LOGIN
+
+Maintain a clean demo authentication flow.
+
+Exactly:
+
+Demo Client Login
+Demo Expert Login
+
+Use seeded users.
+
+Use a valid authentication/session mechanism.
+
+Do not hardcode:
+
+user_id = 1
+
+The current logged-in account must flow through:
+
+authentication
+ ↓
+AgentContext
+ ↓
+services
+ ↓
+database queries
+50. SEED DATA
+
+Create meaningful seeded experts.
+
+Do not use generic:
+
+Expert 1
+Expert 2
+Expert 3
+
+Seed meaningful variation including:
+
+Marketing
+Product Marketing
+Authors / Publishing
+Business Strategy
+AI / Data
+Software
+Coaching / Leadership
+Finance
+Operations
+Personal Development
+
+Experts should have actual:
+
+name
+headline
+bio
+category
+tags
+public handle
+verification state
+availability
+timezone
+currency
+1–3 offerings
+
+This data must make semantic search meaningful.
+
+51. LANDING PAGE
+
+The public experience should communicate:
+
+mindGigs
+The marketplace for expertise.
+
+Powered by NEXUS.
+
+Do not make NEXUS appear to be a separate SaaS company.
+
+The landing page should show:
+
+Hero
+ ↓
+How mindGigs + NEXUS works
+ ↓
+Client workflow
+ ↓
+Expert workflow
+ ↓
+Actual product UI preview
+ ↓
+Demo login
+ ↓
+Footer
+
+Avoid:
+
+generic AI hype
+fake statistics
+fake testimonials
+glowing brains
+excessive gradients
+meaningless futuristic effects
+
+The actual product UI should demonstrate the idea.
+
+52. DESIGN
+
+Use the existing serious SaaS visual language.
+
+Keep:
+
+dark sidebar
+light application canvas
+white cards
+restrained accent color
+clear typography
+consistent spacing
+
+The UI should feel like a real marketplace/productivity application, not an AI toy.
+
+Avoid:
+
+giant chatbot bubbles
+raw JSON
+raw markdown
+giant LLM text blocks
+fake loading
+fake success
+dead buttons
+dead navigation
+53. NEXUS SHOULD NOT BE THE ENTIRE SCREEN
+
+Do not build:
+
+Chat
+Chat
+Chat
+Chat
+
+as the application.
+
+The application should remain visible.
+
+The user should be able to:
+
+talk to NEXUS
++
+inspect the real application
++
+edit forms
++
+navigate
++
+review records
+
+NEXUS is the control layer.
+
+54. FAILURE HANDLING
+
+If the LLM fails:
+
+LLM failure
+ ↓
+structured fallback where possible
+
+If a capability does not exist:
+
+This capability is not available in this demo yet.
+
+But do not use this as an excuse to avoid implementing the required milestone features.
+
+If a required feature is part of this milestone, implement it.
+
+If an environment limitation prevents implementation/testing, report it honestly.
+
+Never pretend.
+
+55. THE LLM SYSTEM INSTRUCTIONS
+
+Build the actual agent prompt around the following philosophy:
+
+You are NEXUS, the agentic operating layer of MindGigs.
+
+You operate within the MindGigs application.
+
+You do not invent platform capabilities.
+
+You do not invent application data.
+
+You do not invent permissions.
+
+You do not directly render UI.
+
+You do not directly modify the database.
+
+You resolve the user's intent using the authenticated application context.
+
+You may use only registered capabilities.
+
+Every factual statement about the user's account or MindGigs must come from:
+- authenticated context
+- application state
+- database/tool results
+- registered business rules
+- actual implementation
+
+When the user requests an operation:
+1. understand the objective
+2. identify the correct capability
+3. identify the target
+4. inspect existing context/data
+5. determine required fields
+6. ask only for missing required information
+7. construct structured state
+8. validate it
+9. return the appropriate typed UI action
+10. require confirmation when persistent data changes
+11. execute through the registered service
+12. read the result back
+13. verify it
+14. update application state
+15. return a concise structured response
+
+Never claim an action succeeded before verification.
+
+Never continue a completed task unless the user explicitly starts a related follow-up.
+
+When the user's objective changes, switch tasks.
+
+Never confuse conversation history with active task state.
+
+The application database is the source of truth.
+
+The user's capabilities determine authorization.
+
+Perspective does not grant permissions.
+
+Natural language determines intent.
+
+Structured UI provides precision.
+
+Real application state provides truth.
+
+This instruction must be treated as a behavioral contract, not a suggestion.
+
+56. IMPORTANT: DO NOT LET THE LLM GENERATE THE WHOLE RESPONSE
+
+The model should produce something similar to:
+
+{
+  "intent": "create_book",
+  "confidence": 0.96,
+  "entities": {
+    "price": 300
+  },
+  "missing_fields": [
+    "title"
+  ],
+  "capability": "create_book",
+  "requires_confirmation": true
+}
+
+Then application code decides:
+
+missing_fields
+ ↓
+ask user
+
+complete
+ ↓
+construct form
+
+confirmation
+ ↓
+execute
+
+Do not ask the LLM to generate:
+
+the entire final UI
+57. GROUNDING CHECK
+
+Before any generated factual statement, enforce:
+
+Where did this fact come from?
+
+Allowed:
+
+database
+adapter
+business rule
+authenticated context
+actual implementation
+retrieved search result
+
+Not allowed:
+
+LLM imagination
+
+This applies especially to:
+
+prices
+availability
+expert names
+ratings
+reviews
+categories
+features
+policies
+payment behavior
+statistics
+58. IMPORTANT TEST: THE PREVIOUS FAILURE
+
+After implementation, test:
+
+User:
+Create a 1:1 session for $500.
+
+NEXUS:
+[preview]
+
+User:
+Confirm.
+
+NEXUS:
+[real creation]
+
+User:
+I need to publish my book for $300.
+
+NEXUS:
+[Book workflow]
+
+User:
+I need an expert who can market and launch my new book globally.
+
+NEXUS:
+[real expert search]
+
+The second request MUST NOT create another 1:1 session.
+
+The third request MUST NOT replay the book creation response.
+
+The system must correctly switch objectives.
+
+This exact regression is mandatory.
+
+59. GOLDEN PATH A — EXPERT
+
+Test:
+
+Demo Expert Login
+ ↓
+Overview
+ ↓
+NEXUS
+
+"I want to create a 1:1 session for $500.
+I offer marketing strategy and related consulting.
+It will be one hour."
+
+Expected:
+
+intent resolved
+ ↓
+1:1 capability
+ ↓
+fields extracted
+ ↓
+editable preview
+ ↓
+user edits if desired
+ ↓
+confirmation
+ ↓
+database creation
+ ↓
+verification
+ ↓
+success
+ ↓
+My Offers refresh
+ ↓
+Expert Profile refresh
+60. GOLDEN PATH B — SUBSCRIPTION
+
+Test:
+
+Create a subscription plan for clients for $25/month.
+
+Expected:
+
+subscription identified
+ ↓
+actual subscription fields
+ ↓
+missing required information requested
+ ↓
+real subscription form populated
+ ↓
+user reviews
+ ↓
+user edits if necessary
+ ↓
+confirmation
+ ↓
+database write
+ ↓
+verification
+ ↓
+subscription manager refresh
+61. GOLDEN PATH C — BOOK
+
+Test:
+
+I want to sell my book for $300.
+
+Expected:
+
+Book identified
+ ↓
+required fields identified
+ ↓
+required files requested
+ ↓
+actual upload controls
+ ↓
+file validation
+ ↓
+Book form populated
+ ↓
+preview
+ ↓
+edit
+ ↓
+confirmation
+ ↓
+database write
+ ↓
+verification
+ ↓
+Books manager refresh
+ ↓
+profile refresh
+62. GOLDEN PATH D — CLIENT SEARCH
+
+Test:
+
+I need an expert for our marketing team
+to help us launch the new product related to authors.
+
+Expected:
+
+search intent
+ ↓
+semantic query
+ ↓
+FAISS
+ ↓
+actual seeded experts
+ ↓
+transparent ranking
+ ↓
+actual match cards
+
+No essay.
+
+No fabricated experts.
+
+No fabricated ratings.
+
+No fabricated prices.
+
+No arbitrary top 3.
+
+63. GOLDEN PATH E — BOOKING
+
+Test:
+
+Find me someone who can help market and launch my book.
+
+Then:
+
+View Profile
+ ↓
+select actual offering
+ ↓
+actual availability
+ ↓
+select slot
+ ↓
+client details
+ ↓
+review
+ ↓
+confirm
+ ↓
+create booking
+ ↓
+verify
+
+Then verify:
+
+Client → My Bookings
+Expert → Incoming Bookings
+
+Both must display the same database record.
+
+64. GOLDEN PATH F — EDIT
+
+Test:
+
+Change my marketing session to $600.
+
+Expected:
+
+resolve existing offer
+ ↓
+read actual current value
+ ↓
+preview current/new values
+ ↓
+confirmation
+ ↓
+update
+ ↓
+verify
+ ↓
+refresh
+
+Do not create a duplicate.
+
+65. GOLDEN PATH G — NAVIGATION
+
+Test:
+
+Show my bookings.
+
+Expected:
+
+intent = navigation/read
+ ↓
+get_my_bookings
+ ↓
+navigate
+ ↓
+real booking screen
+
+Not:
+
+"You can find My Bookings in the sidebar."
+66. GOLDEN PATH H — CONTEXTUAL EDITING
+
+Navigate manually to:
+
+Books
+
+Open a specific book.
+
+Then ask:
+
+Change the price to $250.
+
+NEXUS should use:
+
+current route
++
+selected entity
++
+authenticated user
+
+to resolve the book.
+
+It should not search all books blindly.
+
+67. GOLDEN PATH I — EXPERT PERSONALIZATION
+
+As an expert ask:
+
+What should I work on next?
+
+NEXUS should inspect actual:
+
+profile
+offers
+availability
+bookings
+earnings
+
+and give a grounded recommendation.
+
+If the database does not contain enough information, say so.
+
+68. GOLDEN PATH J — CLIENT PERSONALIZATION
+
+As a client ask:
+
+What should I do next?
+
+NEXUS should inspect actual client state.
+
+Do not return a generic productivity speech.
+
+69. TEST SUITE
+
+Create automated tests for:
+
+Intent
+create_1_to_1
+create_subscription
+create_book
+create_digital_product
+search_experts
+view_bookings
+update_offering
+navigation
+Context
+active task continuation
+task switching
+completed task reset
+selected entity resolution
+current route awareness
+Authorization
+client cannot create offer
+client cannot view earnings
+expert can perform client actions
+expert can perform expert actions
+Response validation
+invalid LLM output rejected
+unsupported capability rejected
+missing required field detected
+hallucinated field rejected
+Persistence
+create → read back → verify
+update → read back → verify
+booking → read back → verify
+UI
+response type → correct component
+navigation action → route changes
+form population → actual form values
+file upload → active task receives file
+70. REGRESSION TEST FOR STALE RESPONSE DATA
+
+Explicitly test:
+
+Task A:
+Create 1:1 session.
+
+Task A completes.
+
+Task B:
+Create book.
+
+Task B must not contain Task A response data.
+
+Task C:
+Search experts.
+
+Task C must not contain Task B response data.
+
+This test exists because stale state has already caused visible failures.
+
+71. NO RAW LLM OUTPUT
+
+Search the frontend for places where raw model output can be rendered.
+
+Eliminate:
+
+JSON.stringify(agent_response)
+
+as user-facing UI.
+
+Eliminate raw markdown dumps.
+
+Eliminate arbitrary LLM-generated pseudo-UI.
+
+Every response must pass through the response contract and renderer.
+
+72. NO HARDCODED DEMO RESULTS
+
+Do not solve the demo by doing:
+
+if "book" in message:
+    return fake_book_result
+
+or:
+
+if "marketing" in message:
+    return Sarah Khan
+
+Use actual:
+
+database
+services
+adapters
+vector search
+application state
+
+The seed data can be designed to make the demo reliable.
+
+The result itself must still be generated from the data.
+
+73. NO GIANT INTENT PROMPT AS THE ONLY SOLUTION
+
+Do not simply create a 10,000-word system prompt and leave the architecture unchanged.
+
+The prompt must be supported by:
+
+AgentContext
+CapabilityRegistry
+IntentSchema
+TaskState
+ResponseSchema
+Authorization
+BusinessRules
+Services
+DataAdapter
+ResponseNormalizer
+UIActionProtocol
+
+The model prompt explains the rules.
+
+The application architecture enforces them.
+
+74. PRIORITY ORDER
+
+Do not attempt to implement every possible MindGigs feature before the foundation works.
+
+Priority:
+
+P0 — Agent foundation
+context
+capabilities
+intent resolution
+task state
+response schema
+authorization
+normalization
+UI action protocol
+P1 — Product shell
+landing
+login
+client account
+expert account
+overview
+navigation
+NEXUS integration
+P2 — Expert core
+profile
+availability
+1:1
+subscription
+book
+digital product
+custom
+highlight
+My Offers
+P3 — Client core
+semantic search
+profiles
+offerings
+availability
+booking
+My Bookings
+Incoming Bookings
+P4 — Intelligence/polish
+personalization
+contextual actions
+better entity resolution
+better task switching
+response polishing
+
+Secondary MindGigs areas can be added after these foundations are genuinely working.
+
+75. IMPORTANT IMPLEMENTATION RULE
+
+Do not stop when the code compiles.
+
+Do not stop when the API returns JSON.
+
+Do not stop when the frontend renders.
+
+Do not stop when unit tests pass while the browser workflow is broken.
+
+The acceptance standard is:
+
+A stakeholder can open the application, log in, talk naturally to NEXUS, see NEXUS operate the real MindGigs application, review/edit forms, upload files, confirm actions, and then visibly see the resulting data in the appropriate application screens.
+
+76. MANUAL BROWSER VERIFICATION
+
+After implementation, actually run the application.
+
+Verify:
+
+Landing
+ ↓
+Login
+ ↓
+Demo Client
+ ↓
+Overview
+ ↓
+Find Experts
+ ↓
+NEXUS search
+ ↓
+real results
+
+Then:
+
+Demo Expert
+ ↓
+Overview
+ ↓
+NEXUS
+ ↓
+Create subscription
+ ↓
+preview
+ ↓
+edit
+ ↓
+confirm
+ ↓
+real database
+ ↓
+subscription page
+
+Then:
+
+Create book
+ ↓
+upload files
+ ↓
+preview
+ ↓
+confirm
+ ↓
+Books manager
+
+Then:
+
+Client search
+ ↓
+expert profile
+ ↓
+offering
+ ↓
+availability
+ ↓
+booking
+ ↓
+My Bookings
+77. BUILD VALIDATION
+
+Run:
+
+pytest
+
+and:
+
+npm run build
+
+Fix:
+
+TypeScript errors
+Python errors
+API mismatches
+Pydantic mismatches
+broken imports
+runtime errors
+stale state
+authentication problems
+database problems
+seed problems
+navigation problems
+form state problems
+file upload problems
+
+If the environment prevents a test, report that explicitly.
+
+Never claim success when a test was not actually run.
+
+78. FINAL REPORT
+
+At the end, provide:
+
+1. Architecture changes
+2. Agent context model
+3. Capability registry implemented
+4. Intent system implemented
+5. Task-state system implemented
+6. Response contract implemented
+7. UI action protocol implemented
+8. Authentication/account model
+9. Product shell
+10. Expert workflows implemented
+11. Client workflows implemented
+12. File workflows implemented
+13. Tests added
+14. Manual browser tests performed
+15. Exact test results
+16. Files changed
+17. Environment limitations
+18. Features intentionally not implemented
+19. Known remaining issues
+
+Do not say:
+
+"Everything is complete."
+
+Instead distinguish:
+
+WORKING
+PARTIALLY WORKING
+NOT IMPLEMENTED
+BLOCKED BY ENVIRONMENT
+79. FINAL QUALITY BAR
+
+The old implementation tried to make NEXUS sound intelligent.
+
+This implementation must make NEXUS behave intelligently.
+
+The stakeholder should be able to say:
+
+"Create a subscription for my clients."
+
+and watch NEXUS understand the request, identify the subscription workflow, collect only what is missing, populate the actual form, let them edit it, ask for confirmation, save it, verify it, and show it in the real application.
+
+They should be able to say:
+
+"I want to sell my book for $300."
+
+and NEXUS should understand that this is a Book, not a 1:1 session, request the appropriate missing book information/files, present the actual Book workflow, and publish the resulting record.
+
+They should be able to say:
+
+"Find me someone who can market and launch my book globally."
+
+and NEXUS should understand that the objective has changed to client-side expert discovery, perform real semantic search, and show real expert results.
+
+They should be able to say:
+
+"Show my bookings."
+
+and NEXUS should navigate to the real booking screen.
+
+They should be able to say:
+
+"Change that subscription to $25."
+
+and NEXUS should understand what "that subscription" refers to from application context.
+
+This is the product.
+
+Not:
+
+User → LLM → paragraph
+
+But:
+
+User
+ ↓
+NEXUS
+ ↓
+Application Context
+ ↓
+Intent Resolution
+ ↓
+Capability Selection
+ ↓
+Entity Resolution
+ ↓
+Authorization
+ ↓
+Task State
+ ↓
+Structured Form / UI Action
+ ↓
+User Review + Edit
+ ↓
+Confirmation
+ ↓
+Service
+ ↓
+DataAdapter
+ ↓
+Database
+ ↓
+Read Back
+ ↓
+Verification
+ ↓
+Application State Update
+ ↓
+Typed UI
+
+Build this architecture first.
+
+Then build the features on top of it.
+
+Do not optimize for how impressive the LLM response sounds. Optimize for whether the user can accomplish a real MindGigs task with fewer steps.
+
+END MILESTONE
