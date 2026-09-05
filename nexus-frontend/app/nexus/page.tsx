@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { useAuth } from '@/components/layout/AuthContext';
 import { sendAgentMessage } from '@/lib/api';
 import { AgentMessage } from '@/lib/types';
+import { OfferingDraftCard } from '@/components/nexus/OfferingDraftCard';
 import { 
   Sparkles, Send, Bot, User as UserIcon, RefreshCw, ChevronRight, CheckCircle2, AlertCircle, ArrowUpRight
 } from 'lucide-react';
@@ -77,6 +78,9 @@ function NexusWorkspaceContent() {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         intent: resp.intent,
         suggested_actions: resp.suggested_actions
+        , draft: resp.draft
+        , response_type: resp.response_type
+        , requires_confirmation: resp.requires_confirmation
       };
 
       setMessages(prev => [...prev, agentMsg]);
@@ -104,6 +108,14 @@ function NexusWorkspaceContent() {
             <div className="p-2 rounded-xl bg-[#00C49F]/10 text-[#00C49F]">
               <Sparkles className="w-5 h-5" />
             </div>
+
+            {msg.draft && (
+              <OfferingDraftCard
+                draft={msg.draft}
+                canPublish={Boolean(msg.requires_confirmation)}
+                onPublish={() => handleSendMessage('Publish')}
+              />
+            )}
             <div>
               <h1 className="font-bold text-slate-900 text-base tracking-tight flex items-center gap-2">
                 NEXUS Conversational Workspace

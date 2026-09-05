@@ -19,6 +19,11 @@ class AgentChatResponse(BaseModel):
     role: str
     suggested_actions: List[str]
     conversation_history: List[Dict[str, Any]]
+    response_type: str = "message"
+    draft: Optional[Dict[str, Any]] = None
+    action_result: Optional[Dict[str, Any]] = None
+    requires_confirmation: bool = False
+    confirmation: Optional[Dict[str, Any]] = None
 
 @router.post("/agent/chat", response_model=AgentChatResponse)
 async def agent_chat(

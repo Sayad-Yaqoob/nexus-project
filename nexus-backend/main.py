@@ -11,6 +11,7 @@ from services.adapters import get_data_adapter, get_vector_adapter
 from api.shared import router as shared_router
 from api.auth import router as auth_router
 from api.agent import router as agent_router
+from api.expert import router as expert_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -67,6 +68,7 @@ app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"
 app.include_router(shared_router, prefix=settings.API_V1_STR, tags=["Shared"])
 app.include_router(auth_router, prefix=settings.API_V1_STR, tags=["Authentication"])
 app.include_router(agent_router, prefix=settings.API_V1_STR, tags=["NEXUS Agent"])
+app.include_router(expert_router, prefix=settings.API_V1_STR, tags=["Expert"])
 
 @app.get("/")
 async def root():

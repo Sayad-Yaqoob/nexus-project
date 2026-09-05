@@ -219,24 +219,23 @@ class SQLiteDataAdapter(DataAdapter):
 
     async def save_offering(self, expert_id: str, offering: Offering) -> str:
         async with AsyncSessionLocal() as session:
-            try:
-                exp_id = int(expert_id) if expert_id.isdigit() else 1
-                db_off = DBOffering(
-                    expert_id=exp_id,
-                    title=offering.title,
-                    offer_type=offering.offer_type,
-                    price=offering.price,
-                    duration=offering.duration,
-                    description=offering.description,
-                    file_required=offering.file_required
-                )
-                session.add(db_off)
-                await session.commit()
-                await session.refresh(db_off)
-                return str(db_off.id)
-            except Exception as e:
-                print(f"[SQLiteDataAdapter] save_offering error: {e}")
-                return "1"
+            exp_id = int(expert_id)
+            profile = await session.get(DBExpertProfile, exp_id)
+            if profile is None:
+                raise ValueError("Expert profile not found.")
+            db_off = DBOffering(
+                expert_id=exp_id,
+                title=offering.title,
+                offer_type=offering.offer_type,
+                price=offering.price,
+                duration=offering.duration,
+                description=offering.description,
+                file_required=offering.file_required
+            )
+            session.add(db_off)
+            await session.commit()
+            await session.refresh(db_off)
+            return str(db_off.id)
 
     # --- Session Persistence ---
 
