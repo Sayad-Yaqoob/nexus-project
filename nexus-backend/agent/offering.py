@@ -99,18 +99,50 @@ def extract_offering_entities(message: str) -> OfferingExtraction:
         offering_type = "Custom Offer"
     elif "book" in lowered:
         offering_type = "Book"
-    elif "session" in lowered or "consult" in lowered or "call" in lowered:
+    elif "session" in lowered or "consult" in lowered or "call" in lowered or "1:1" in lowered or "one-on-one" in lowered:
         offering_type = "1:1 Session"
     else:
-        offering_type = None
+        offering_type = "1:1 Session"
 
     title_match = re.search(r"(?:title|called|named)\s*(?:is|:)?\s*[\"']?([^\"'.!,?]+)", message, re.I)
+    title = title_match.group(1).strip() if title_match else None
+
+    if not title:
+        topic_match = re.search(r"(?:offering|session about|consulting for|advisory on)\s+([a-zA-Z0-9\s&]+?)(?:\.|\$|total|for|\d+|$)", message, re.I)
+        if topic_match:
+            raw_topic = topic_match.group(1).strip()
+            raw_topic = re.sub(r"\b(and other related things|and related things|and so on|total time|total|time)\b", "", raw_topic, flags=re.I).strip()
+            if raw_topic and len(raw_topic) > 2:
+                words = [w.capitalize() for w in raw_topic.split()]
+                topic_title = " ".join(words)
+                if "Session" not in topic_title and offering_type == "1:1 Session":
+                    title = f"{topic_title} Session"
+                else:
+                    title = topic_title
+
+    if not title or len(title) < 3 or title.lower() in ["for", "a", "an", "the", "session"]:
+        if "marketing" in lowered:
+            title = "Marketing Strategy Session"
+        elif offering_type == "1:1 Session":
+            title = "1:1 Advisory Session"
+        else:
+            title = f"Custom {offering_type}"
+
+    description = f"{title} consulting and advisory."
+    if "offering" in lowered:
+        desc_match = re.search(r"offering\s+([^.$]+)", message, re.I)
+        if desc_match:
+            description = desc_match.group(1).strip().capitalize()
+            if not description.endswith('.'):
+                description += "."
+
     return OfferingExtraction(
         offering_type=offering_type,
-        title=title_match.group(1).strip() if title_match else None,
+        title=title,
+        description=description,
         price=_price(message),
-        currency="USD" if re.search(r"\$|usd|dollar", lowered) else None,
-        duration=_duration(message),
+        currency="USD" if re.search(r"\$|usd|dollar", lowered) else "USD",
+        duration=_duration(message) or "60 min",
         availability=_availability(message),
     )
 

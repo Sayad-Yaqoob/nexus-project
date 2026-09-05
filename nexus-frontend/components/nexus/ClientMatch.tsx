@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sparkles, Search, CheckCircle2, ArrowRight, Zap, Star, HelpCircle } from 'lucide-react';
+import { Sparkles, Search, CheckCircle2, Zap, Star, HelpCircle } from 'lucide-react';
 import { apiUrl } from '@/lib/api';
 
 interface ClarificationQuestion {
@@ -80,67 +80,8 @@ export const ClientMatch: React.FC = () => {
         throw new Error('Failed to search expert matches');
       }
     } catch (err: any) {
-      console.warn("Client match API warning, using fallback matches:", err);
-      setMatches([
-        {
-          id: 1,
-          user_id: 1,
-          full_name: "Dr. Sophia Chen",
-          handle: "sophiachen_ai",
-          headline: "Principal AI Researcher & LLM Specialist",
-          category: "AI & Data",
-          tags: ["LLMs", "RAG", "PyTorch", "Fine-Tuning", "Python"],
-          match_score: 96.4,
-          reasoning: "Perfect fit for LLM application architecture, vector retrieval, and RAG pipeline optimization.",
-          is_verified: true,
-          top_offering: {
-            id: 1,
-            title: "1:1 AI Architecture & RAG Review",
-            type: "1:1 Session",
-            price: 350,
-            duration: "60 min"
-          }
-        },
-        {
-          id: 6,
-          user_id: 6,
-          full_name: "Alexandre Dubois",
-          handle: "alex_fullstack",
-          headline: "Staff Full Stack Engineer (Next.js, Python, PostgreSQL)",
-          category: "Software Development",
-          tags: ["Next.js", "TypeScript", "Node.js", "Python", "FastAPI"],
-          match_score: 91.2,
-          reasoning: "Strong technical alignment for high-scale Next.js and FastAPI integration.",
-          is_verified: true,
-          top_offering: {
-            id: 2,
-            title: "Full-Stack Code Architecture Review",
-            type: "1:1 Session",
-            price: 250,
-            duration: "60 min"
-          }
-        },
-        {
-          id: 16,
-          user_id: 16,
-          full_name: "David Sterling",
-          handle: "david_venture",
-          headline: "Former Tech Founder & Venture Capital Advisor",
-          category: "Business & Strategy",
-          tags: ["Fundraising", "Pitch Decks", "Venture Capital", "GTM"],
-          match_score: 87.5,
-          reasoning: "Excellent track record guiding founders through pitch decks and investor negotiations.",
-          is_verified: true,
-          top_offering: {
-            id: 3,
-            title: "Pitch Deck & Fundraising Strategy Clinic",
-            type: "1:1 Session",
-            price: 400,
-            duration: "60 min"
-          }
-        }
-      ]);
-      setSearched(true);
+      setError(err?.message || 'Unable to search experts right now.');
+      setMatches([]);
     } finally {
       setLoading(false);
     }
@@ -234,7 +175,7 @@ export const ClientMatch: React.FC = () => {
             className="px-6 py-3 rounded-xl bg-[#00C49F] text-white font-bold text-xs uppercase tracking-wider hover:bg-[#059669] shadow-xs transition-all flex items-center gap-2 disabled:opacity-50"
           >
             <Sparkles className="w-4 h-4" />
-            {loading ? 'Searching Vector Store...' : 'Find Top 3 Experts'}
+            {loading ? 'Searching Vector Store...' : 'Find Experts'}
           </button>
         </div>
       </div>
@@ -245,14 +186,14 @@ export const ClientMatch: React.FC = () => {
           <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
             <h3 className="text-sm font-bold uppercase tracking-wider text-[#1E293B] flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-[#00C49F]" />
-              Top 3 Expert Matches Found
+              Expert Matches Found
             </h3>
             <span className="text-xs text-[#64748B]">
               Ranked by FAISS vector similarity & Groq reasoning
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[720px] overflow-y-auto pr-1">
             {matches.map((item, idx) => (
               <div
                 key={idx}
@@ -302,13 +243,11 @@ export const ClientMatch: React.FC = () => {
                   <div>
                     <span className="text-[10px] text-[#64748B] block">Session Rate</span>
                     <span className="text-sm font-bold text-[#1E293B]">
-                      ${item.top_offering?.price || 250} / session
+                      {item.top_offering?.price !== undefined
+                        ? `${item.top_offering.price} ${item.top_offering.type || ''}`
+                        : 'Offering details unavailable'}
                     </span>
                   </div>
-                  <button className="px-4 py-2 rounded-xl bg-[#00C49F] text-white text-xs font-bold hover:bg-[#059669] transition-colors flex items-center gap-1 shadow-xs">
-                    Book Now
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
                 </div>
               </div>
             ))}

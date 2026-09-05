@@ -78,7 +78,7 @@ async def find_experts(
         query_vec = [0.1] * 384
 
     # 3. Search vector store
-    search_results = await vector_adapter.search(query_vec, top_k=5)
+    search_results = await vector_adapter.search(query_vec, top_k=max(len(all_experts), 1))
 
     candidate_profiles: List[tuple[ExpertProfile, float]] = []
     if search_results:
@@ -87,13 +87,9 @@ async def find_experts(
             if prof:
                 candidate_profiles.append((prof, score))
 
-    if not candidate_profiles:
-        for p in all_experts[:5]:
-            candidate_profiles.append((p, 0.75))
-
     # 4. Generate ranking & reasoning
     final_matches: List[ExpertMatchItem] = []
-    for idx, (prof, base_score) in enumerate(candidate_profiles[:3]):
+    for idx, (prof, base_score) in enumerate(candidate_profiles):
         pct_score = round(min(98.5, max(65.0, base_score * 100.0 if base_score <= 1.0 else base_score)), 1)
         tags_str = ", ".join(prof.expertise_tags) if isinstance(prof.expertise_tags, list) else (prof.expertise_tags or "")
         
@@ -104,8 +100,14 @@ async def find_experts(
             f"Explain in ONE short sentence why this expert matches."
         )
 
-        reasoning = await llm_adapter.generate_reasoning(prompt)
-        reasoning = reasoning.strip().strip('"')
+        try:
+            reasoning = await llm_adapter.generate_reasoning(prompt)
+            reasoning = reasoning.strip().strip('"')
+        except Exception:
+            tags = tags_str.split(", ")[:3]
+            grounded = [f"Matches {prof.category}" if prof.category else None]
+            grounded.extend(f"Relevant tag: {tag}" for tag in tags if tag)
+            reasoning = "; ".join(item for item in grounded if item) or "Retrieved from the expert profile."
 
         top_offering = None
         if prof.offerings:
@@ -153,7 +155,7 @@ async def find_experts(
 
     return FindExpertsResponse(
         raw_problem=req.raw_problem,
-        needs_clarification=is_broad,
+        needs_clarification=is_broad and not final_matches,
         confidence_score=0.65 if is_broad else 0.95,
         clarification_questions=clarification_questions,
         matches=final_matches

@@ -11,7 +11,9 @@ from database.models import (
     User as DBUser,
     ExpertProfile as DBExpertProfile,
     Offering as DBOffering,
-    NexusSession as DBNexusSession
+    NexusSession as DBNexusSession,
+    Booking as DBBooking,
+    Earning as DBEarning
 )
 
 class SQLiteDataAdapter(DataAdapter):
@@ -236,6 +238,243 @@ class SQLiteDataAdapter(DataAdapter):
             await session.commit()
             await session.refresh(db_off)
             return str(db_off.id)
+
+    async def get_offering(self, offering_id: int) -> Optional[Offering]:
+        async with AsyncSessionLocal() as session:
+            try:
+                db_off = await session.get(DBOffering, int(offering_id))
+                if db_off:
+                    return Offering(
+                        id=db_off.id,
+                        title=db_off.title,
+                        offer_type=db_off.offer_type,
+                        price=float(db_off.price),
+                        duration=db_off.duration,
+                        description=db_off.description,
+                        file_required=db_off.file_required
+                    )
+            except Exception as e:
+                print(f"[SQLiteDataAdapter] get_offering error: {e}")
+        return None
+
+    async def update_offering(self, offering_id: int, updates: Dict[str, Any]) -> Optional[Offering]:
+        async with AsyncSessionLocal() as session:
+            try:
+                db_off = await session.get(DBOffering, int(offering_id))
+                if not db_off:
+                    return None
+                if "title" in updates and updates["title"]:
+                    db_off.title = updates["title"]
+                if "price" in updates and updates["price"] is not None:
+                    db_off.price = updates["price"]
+                if "duration" in updates and updates["duration"]:
+                    db_off.duration = updates["duration"]
+                if "description" in updates and updates["description"]:
+                    db_off.description = updates["description"]
+                if "offer_type" in updates and updates["offer_type"]:
+                    db_off.offer_type = updates["offer_type"]
+                await session.commit()
+                await session.refresh(db_off)
+                return Offering(
+                    id=db_off.id,
+                    title=db_off.title,
+                    offer_type=db_off.offer_type,
+                    price=float(db_off.price),
+                    duration=db_off.duration,
+                    description=db_off.description,
+                    file_required=db_off.file_required
+                )
+            except Exception as e:
+                print(f"[SQLiteDataAdapter] update_offering error: {e}")
+        return None
+
+    async def delete_offering(self, offering_id: int) -> bool:
+        async with AsyncSessionLocal() as session:
+            try:
+                db_off = await session.get(DBOffering, int(offering_id))
+                if db_off:
+                    await session.delete(db_off)
+                    await session.commit()
+                    return True
+            except Exception as e:
+                print(f"[SQLiteDataAdapter] delete_offering error: {e}")
+        return False
+
+    async def create_booking(
+        self,
+        client_id: int,
+        expert_user_id: int,
+        offering_id: Optional[int],
+        scheduled_at: Optional[str] = None,
+        notes: Optional[str] = None
+    ) -> Dict[str, Any]:
+        async with AsyncSessionLocal() as session:
+            try:
+                # Fetch client & expert user names
+                client_user = await session.get(DBUser, int(client_id))
+                expert_user = await session.get(DBUser, int(expert_user_id))
+                
+                offering_title = "Consulting Session"
+                amount = 150.0
+                if offering_id:
+                    off = await session.get(DBOffering, int(offering_id))
+                    if off:
+                        offering_title = off.title
+                        amount = float(off.price)
+
+                import datetime
+                sched_dt = datetime.datetime.now() + datetime.timedelta(days=1)
+                if scheduled_at:
+                    try:
+                        sched_dt = datetime.datetime.fromisoformat(scheduled_at)
+                    except Exception:
+                        pass
+
+                db_booking = DBBooking(
+                    client_user_id=int(client_id),
+                    expert_user_id=int(expert_user_id),
+                    offering_id=int(offering_id) if offering_id else None,
+                    status="confirmed",
+                    scheduled_at=sched_dt,
+                    notes=notes or f"Demo Booking for {offering_title}"
+                )
+                session.add(db_booking)
+                await session.commit()
+                await session.refresh(db_booking)
+
+                # Record 70% expert earning
+                expert_amount = round(amount * 0.70, 2)
+                db_earning = DBEarning(
+                    expert_user_id=int(expert_user_id),
+                    booking_id=db_booking.id,
+                    amount=expert_amount,
+                    currency="USD",
+                    status="paid"
+                )
+                session.add(db_earning)
+                await session.commit()
+
+                return {
+                    "id": db_booking.id,
+                    "client_id": client_id,
+                    "client_name": client_user.full_name if client_user else f"Client #{client_id}",
+                    "expert_id": expert_user_id,
+                    "expert_name": expert_user.full_name if expert_user else f"Expert #{expert_user_id}",
+                    "offering_id": offering_id,
+                    "offering_title": offering_title,
+                    "amount": amount,
+                    "scheduled_at": sched_dt.strftime("%Y-%m-%d %H:%M"),
+                    "status": "confirmed",
+                    "payment_status": "Demo / Simulated",
+                    "notes": db_booking.notes
+                }
+            except Exception as e:
+                print(f"[SQLiteDataAdapter] create_booking error: {e}")
+                raise e
+
+    async def list_bookings(self, user_id: int, role: str) -> List[Dict[str, Any]]:
+        async with AsyncSessionLocal() as session:
+            bookings_list = []
+            try:
+                if role == "expert":
+                    stmt = select(DBBooking).filter_by(expert_user_id=int(user_id))
+                else:
+                    stmt = select(DBBooking).filter_by(client_user_id=int(user_id))
+                
+                res = await session.execute(stmt)
+                db_bookings = res.scalars().all()
+
+                for b in db_bookings:
+                    client_u = await session.get(DBUser, b.client_user_id)
+                    expert_u = await session.get(DBUser, b.expert_user_id)
+                    off_title = "Consulting Session"
+                    price = 150.0
+                    duration = "60 min"
+                    if b.offering_id:
+                        off = await session.get(DBOffering, b.offering_id)
+                        if off:
+                            off_title = off.title
+                            price = float(off.price)
+                            duration = off.duration or "60 min"
+
+                    bookings_list.append({
+                        "id": b.id,
+                        "client_id": b.client_user_id,
+                        "client_name": client_u.full_name if client_u else f"Client #{b.client_user_id}",
+                        "expert_id": b.expert_user_id,
+                        "expert_name": expert_u.full_name if expert_u else f"Expert #{b.expert_user_id}",
+                        "offering_id": b.offering_id,
+                        "offering_title": off_title,
+                        "price": price,
+                        "duration": duration,
+                        "scheduled_at": b.scheduled_at.strftime("%Y-%m-%d %H:%M") if b.scheduled_at else "Upcoming",
+                        "status": b.status or "confirmed",
+                        "payment_status": "Demo / Simulated",
+                        "created_at": b.created_at.strftime("%Y-%m-%d") if b.created_at else None
+                    })
+            except Exception as e:
+                print(f"[SQLiteDataAdapter] list_bookings error: {e}")
+
+            return bookings_list
+
+    async def get_earnings(self, expert_user_id: int) -> Dict[str, Any]:
+        async with AsyncSessionLocal() as session:
+            try:
+                res = await session.execute(select(DBEarning).filter_by(expert_user_id=int(expert_user_id)))
+                db_earnings = res.scalars().all()
+
+                b_res = await session.execute(select(DBBooking).filter_by(expert_user_id=int(expert_user_id)))
+                db_bookings = b_res.scalars().all()
+
+                total_gross = 0.0
+                recent_sales = []
+
+                for b in db_bookings:
+                    price = 150.0
+                    off_title = "Consulting Session"
+                    if b.offering_id:
+                        off = await session.get(DBOffering, b.offering_id)
+                        if off:
+                            price = float(off.price)
+                            off_title = off.title
+                    total_gross += price
+
+                    client_u = await session.get(DBUser, b.client_user_id)
+                    recent_sales.append({
+                        "booking_id": b.id,
+                        "client_name": client_u.full_name if client_u else "Client",
+                        "offering_title": off_title,
+                        "gross_amount": price,
+                        "expert_net": round(price * 0.70, 2),
+                        "platform_fee": round(price * 0.30, 2),
+                        "date": b.created_at.strftime("%Y-%m-%d") if b.created_at else "Recent"
+                    })
+
+                expert_net = round(total_gross * 0.70, 2)
+                platform_fee = round(total_gross * 0.30, 2)
+
+                return {
+                    "total_sales_count": len(db_bookings),
+                    "total_gross_revenue": total_gross,
+                    "expert_net_earnings": expert_net,
+                    "platform_fee_split": platform_fee,
+                    "currency": "USD",
+                    "payout_minimum": 50.0,
+                    "payout_status": "Eligible for Payout" if expert_net >= 50.0 else "Below $50 Minimum",
+                    "recent_sales": recent_sales
+                }
+            except Exception as e:
+                print(f"[SQLiteDataAdapter] get_earnings error: {e}")
+                return {
+                    "total_sales_count": 0,
+                    "total_gross_revenue": 0.0,
+                    "expert_net_earnings": 0.0,
+                    "platform_fee_split": 0.0,
+                    "currency": "USD",
+                    "payout_minimum": 50.0,
+                    "payout_status": "No Earnings Yet",
+                    "recent_sales": []
+                }
 
     # --- Session Persistence ---
 

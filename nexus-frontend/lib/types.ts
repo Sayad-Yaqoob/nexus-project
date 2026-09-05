@@ -17,7 +17,23 @@ export interface AgentMessage {
   draft?: OfferingDraft;
   response_type?: string;
   requires_confirmation?: boolean;
+  action_result?: Record<string, unknown>;
+  response_data?: Record<string, unknown>;
 }
+
+export type ResponseType =
+  | 'greeting'
+  | 'clarification'
+  | 'action_preview'
+  | 'action_success'
+  | 'search_results'
+  | 'profile'
+  | 'offering'
+  | 'booking'
+  | 'earnings'
+  | 'navigation'
+  | 'general'
+  | 'error';
 
 export interface AgentChatResponse {
   response: string;
@@ -26,11 +42,12 @@ export interface AgentChatResponse {
   role: string;
   suggested_actions: string[];
   conversation_history: { role: string; content: string }[];
-  response_type: string;
+  response_type: ResponseType;
   draft?: OfferingDraft;
   action_result?: Record<string, unknown>;
   requires_confirmation: boolean;
   confirmation?: { action?: string };
+  response_data?: Record<string, unknown>;
 }
 
 export interface TokenResponse {
@@ -43,7 +60,7 @@ export interface OfferingDraft {
   id?: number | string;
   title?: string;
   offer_type: '1:1 Session' | 'Subscription' | 'Digital Product' | 'Custom Offer' | 'Book' | 'Highlight';
-  price: number;
+  price?: number;
   duration?: string;
   description?: string;
   file_required?: boolean;
@@ -55,6 +72,30 @@ export interface OfferingDraft {
     start?: string;
     end?: string;
   };
+}
+
+export interface AvailabilityDay {
+  available: boolean;
+  start?: string;
+  end?: string;
+}
+
+export interface WeeklyAvailability {
+  [day: string]: AvailabilityDay;
+}
+
+export interface ExpertMatch {
+  id: string | number;
+  user_id: string | number;
+  full_name: string;
+  handle: string;
+  headline: string;
+  category: string;
+  tags: string[];
+  match_score: number;
+  reasoning: string;
+  is_verified: boolean;
+  top_offering?: OfferingDraft;
 }
 
 export interface PreviewCard {

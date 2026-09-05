@@ -94,6 +94,36 @@ class DataAdapter(ABC):
         """Create or update an offering for an expert."""
         pass
 
+    @abstractmethod
+    async def get_offering(self, offering_id: int) -> Optional[Offering]:
+        """Fetch an offering by ID."""
+        pass
+
+    @abstractmethod
+    async def update_offering(self, offering_id: int, updates: Dict[str, Any]) -> Optional[Offering]:
+        """Update an existing offering."""
+        pass
+
+    @abstractmethod
+    async def delete_offering(self, offering_id: int) -> bool:
+        """Delete an offering by ID."""
+        pass
+
+    @abstractmethod
+    async def create_booking(self, client_id: int, expert_user_id: int, offering_id: Optional[int], scheduled_at: Optional[str] = None, notes: Optional[str] = None) -> Dict[str, Any]:
+        """Create a new booking in database."""
+        pass
+
+    @abstractmethod
+    async def list_bookings(self, user_id: int, role: str) -> List[Dict[str, Any]]:
+        """List bookings for a client or expert."""
+        pass
+
+    @abstractmethod
+    async def get_earnings(self, expert_user_id: int) -> Dict[str, Any]:
+        """Calculate earnings stats for an expert."""
+        pass
+
     # --- Session persistence ---
 
     @abstractmethod
@@ -105,6 +135,7 @@ class DataAdapter(ABC):
     async def save_session(self, session_id: str, user_id: int, conversation_history: List[Dict], state: Dict) -> None:
         """Create or update a conversation session."""
         pass
+
 
 
 class LLMAdapter(ABC):

@@ -102,3 +102,97 @@ async def health_check(
         "expert_record_count": len(experts),
         "portable_adapters": True
     }
+
+# --- Offerings CRUD Endpoints ---
+
+class UpdateOfferingRequest(BaseModel):
+    title: Optional[str] = None
+    price: Optional[float] = None
+    duration: Optional[str] = None
+    description: Optional[str] = None
+    offer_type: Optional[str] = None
+
+@router.get("/offerings")
+async def list_user_offerings(
+    current_user: User = Depends(get_current_user),
+    data_adapter: DataAdapter = Depends(get_data_adapter)
+):
+    """List all offerings for current expert user."""
+    profile = await data_adapter.get_expert_profile(str(current_user.id))
+    if not profile:
+        return []
+    return [o.model_dump() for o in profile.offerings]
+
+@router.put("/offerings/{offering_id}")
+async def update_offering_endpoint(
+    offering_id: int,
+    req: UpdateOfferingRequest,
+    current_user: User = Depends(get_current_user),
+    data_adapter: DataAdapter = Depends(get_data_adapter),
+    vector_adapter: VectorAdapter = Depends(get_vector_adapter)
+):
+    """Update an existing offering in database."""
+    updated = await data_adapter.update_offering(offering_id, req.model_dump(exclude_none=True))
+    if not updated:
+        raise HTTPException(status_code=404, detail="Offering not found")
+    all_exp = await data_adapter.list_experts()
+    await vector_adapter.index_experts(all_exp)
+    return {"status": "success", "offering": updated.model_dump()}
+
+@router.delete("/offerings/{offering_id}")
+async def delete_offering_endpoint(
+    offering_id: int,
+    current_user: User = Depends(get_current_user),
+    data_adapter: DataAdapter = Depends(get_data_adapter),
+    vector_adapter: VectorAdapter = Depends(get_vector_adapter)
+):
+    """Delete an offering from database."""
+    deleted = await data_adapter.delete_offering(offering_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Offering not found")
+    all_exp = await data_adapter.list_experts()
+    await vector_adapter.index_experts(all_exp)
+    return {"status": "success", "message": "Offering deleted successfully"}
+
+# --- Bookings Endpoints ---
+
+class CreateBookingRequest(BaseModel):
+    expert_user_id: int
+    offering_id: Optional[int] = None
+    scheduled_at: Optional[str] = None
+    notes: Optional[str] = None
+
+@router.get("/bookings")
+async def list_bookings_endpoint(
+    current_user: User = Depends(get_current_user),
+    data_adapter: DataAdapter = Depends(get_data_adapter)
+):
+    """Fetch bookings for client (My Bookings) or expert (Incoming Bookings)."""
+    return await data_adapter.list_bookings(int(current_user.id), current_user.role)
+
+@router.post("/bookings")
+async def create_booking_endpoint(
+    req: CreateBookingRequest,
+    current_user: User = Depends(get_current_user),
+    data_adapter: DataAdapter = Depends(get_data_adapter)
+):
+    """Create a new demo booking."""
+    booking = await data_adapter.create_booking(
+        client_id=int(current_user.id),
+        expert_user_id=req.expert_user_id,
+        offering_id=req.offering_id,
+        scheduled_at=req.scheduled_at,
+        notes=req.notes
+    )
+    return {"status": "success", "booking": booking}
+
+# --- Earnings Endpoint ---
+
+@router.get("/earnings")
+async def get_earnings_endpoint(
+    current_user: User = Depends(get_current_user),
+    data_adapter: DataAdapter = Depends(get_data_adapter)
+):
+    """Fetch earnings summary for expert."""
+    return await data_adapter.get_earnings(int(current_user.id))
+

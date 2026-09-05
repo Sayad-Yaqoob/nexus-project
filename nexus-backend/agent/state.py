@@ -20,3 +20,5 @@ class NexusState(TypedDict, total=False):
     draft: Dict[str, Any]
     action_result: Dict[str, Any]
     pending_action: Dict[str, Any]
+    response_data: Optional[Dict[str, Any]]
+

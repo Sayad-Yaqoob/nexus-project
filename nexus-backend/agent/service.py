@@ -65,5 +65,6 @@ class AgentService:
             "confirmation": {
                 "action": final_state.get("confirmation_action")
             } if final_state.get("requires_confirmation") else None,
+            "response_data": final_state.get("response_data"),
             "conversation_history": final_state.get("conversation_history", [])
         }

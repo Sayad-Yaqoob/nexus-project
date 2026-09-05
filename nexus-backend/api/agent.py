@@ -24,6 +24,7 @@ class AgentChatResponse(BaseModel):
     action_result: Optional[Dict[str, Any]] = None
     requires_confirmation: bool = False
     confirmation: Optional[Dict[str, Any]] = None
+    response_data: Optional[Dict[str, Any]] = None
 
 @router.post("/agent/chat", response_model=AgentChatResponse)
 async def agent_chat(
