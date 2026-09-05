@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 function NexusWorkspaceContent() {
-  const { user } = useAuth();
+  const { user, getAgentContext } = useAuth();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<'canvas' | 'offers' | 'bookings' | 'studio' | 'search'>('canvas');
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
@@ -94,7 +94,8 @@ function NexusWorkspaceContent() {
     setLoading(true);
 
     try {
-      const resp = await sendAgentMessage(messageText.trim(), sessionId);
+      const context = getAgentContext();
+      const resp = await sendAgentMessage(messageText.trim(), context as any, sessionId);
       setSessionId(resp.session_id);
 
       const agentMsg: AgentMessage = {

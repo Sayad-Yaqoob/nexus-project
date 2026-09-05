@@ -44,13 +44,10 @@ async def mimic_login(
         candidates = result.scalars().all()
 
 
-        if not candidates:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No seeded users found matching criteria (role={target_role}, user_id={target_uid})"
-            )
-
-        chosen_user = candidates[0] if target_role or target_uid else random.choice(candidates)
+        if target_uid:
+            chosen_user = candidates[0]
+        else:
+            chosen_user = random.choice(candidates)
 
 
         token_data = {

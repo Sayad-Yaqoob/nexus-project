@@ -163,8 +163,11 @@ class SQLiteDataAdapter(DataAdapter):
                         expertise_tags=tags_str,
                         is_verified=True
                     )
-                    session.add(db_prof)
-                
+                # Upgrade user role to expert in DB if currently client
+                db_user = await session.get(DBUser, u_id)
+                if db_user:
+                    db_user.role = "expert"
+
                 await session.commit()
                 await session.refresh(db_prof)
                 profile.id = db_prof.id

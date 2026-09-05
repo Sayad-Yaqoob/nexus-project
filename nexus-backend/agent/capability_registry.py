@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -10,6 +10,7 @@ class Capability(BaseModel):
     read_only: bool = True
     required_fields: List[str] = Field(default_factory=list)
     optional_fields: List[str] = Field(default_factory=list)
+    required_files: List[str] = Field(default_factory=list)
     target_routes: List[str] = Field(default_factory=list)
 
 
@@ -27,7 +28,7 @@ CAPABILITY_REGISTRY: Dict[str, Capability] = {
     ),
     "update_profile": Capability(
         name="update_profile",
-        description="Update expert headline, bio, expertise tags, or social links",
+        description="Update expert headline, bio, expertise tags, or category",
         expert_only=True,
         requires_confirmation=True,
         read_only=False,
@@ -39,6 +40,12 @@ CAPABILITY_REGISTRY: Dict[str, Capability] = {
         expert_only=True,
         read_only=True
     ),
+    "get_offering": Capability(
+        name="get_offering",
+        description="Retrieve details of a specific offering by ID",
+        read_only=True,
+        required_fields=["offering_id"]
+    ),
     "create_1_to_1": Capability(
         name="create_1_to_1",
         description="Create a 1:1 advisory/consulting session offering",
@@ -46,7 +53,8 @@ CAPABILITY_REGISTRY: Dict[str, Capability] = {
         requires_confirmation=True,
         read_only=False,
         required_fields=["title", "price"],
-        optional_fields=["duration", "description", "currency", "availability"]
+        optional_fields=["duration", "description", "currency", "availability"],
+        target_routes=["/sell/1-to-1", "/sell/offers"]
     ),
     "create_subscription": Capability(
         name="create_subscription",
@@ -55,7 +63,18 @@ CAPABILITY_REGISTRY: Dict[str, Capability] = {
         requires_confirmation=True,
         read_only=False,
         required_fields=["title", "price"],
-        optional_fields=["description", "benefits", "external_link"]
+        optional_fields=["description", "benefits", "billing_period", "external_link"],
+        target_routes=["/sell/subscriptions", "/sell/offers"]
+    ),
+    "update_subscription": Capability(
+        name="update_subscription",
+        description="Update an existing subscription plan's title, price, or details",
+        expert_only=True,
+        requires_confirmation=True,
+        read_only=False,
+        required_fields=["offering_id"],
+        optional_fields=["title", "price", "billing_period", "description", "benefits"],
+        target_routes=["/sell/subscriptions", "/sell/offers"]
     ),
     "create_digital_product": Capability(
         name="create_digital_product",
@@ -64,7 +83,9 @@ CAPABILITY_REGISTRY: Dict[str, Capability] = {
         requires_confirmation=True,
         read_only=False,
         required_fields=["title", "price"],
-        optional_fields=["description", "file_path", "delivery_link"]
+        optional_fields=["description", "file_path", "delivery_link"],
+        required_files=["digital_file"],
+        target_routes=["/sell/digital-products", "/sell/offers"]
     ),
     "create_book": Capability(
         name="create_book",
@@ -73,7 +94,9 @@ CAPABILITY_REGISTRY: Dict[str, Capability] = {
         requires_confirmation=True,
         read_only=False,
         required_fields=["title", "price"],
-        optional_fields=["author", "tagline", "overview", "buy_now_pdf", "amazon_link", "custom_link"]
+        optional_fields=["author", "tagline", "overview", "buy_now_pdf", "amazon_link", "custom_link", "front_cover", "back_cover"],
+        required_files=["book_pdf"],
+        target_routes=["/sell/books", "/sell/offers"]
     ),
     "create_custom_offering": Capability(
         name="create_custom_offering",
@@ -82,7 +105,8 @@ CAPABILITY_REGISTRY: Dict[str, Capability] = {
         requires_confirmation=True,
         read_only=False,
         required_fields=["title", "price"],
-        optional_fields=["description"]
+        optional_fields=["description"],
+        target_routes=["/sell/custom-offerings", "/sell/offers"]
     ),
     "create_highlight": Capability(
         name="create_highlight",
@@ -91,11 +115,12 @@ CAPABILITY_REGISTRY: Dict[str, Capability] = {
         requires_confirmation=True,
         read_only=False,
         required_fields=["title"],
-        optional_fields=["image_url", "link_url"]
+        optional_fields=["image_url", "link_url"],
+        target_routes=["/sell/highlights", "/sell/offers"]
     ),
     "update_offering": Capability(
         name="update_offering",
-        description="Update an existing offering's title, price, or description",
+        description="Update an existing offering's title, price, duration, or description",
         expert_only=True,
         requires_confirmation=True,
         read_only=False,
@@ -135,6 +160,12 @@ CAPABILITY_REGISTRY: Dict[str, Capability] = {
         read_only=True,
         required_fields=["expert_id"]
     ),
+    "get_available_slots": Capability(
+        name="get_available_slots",
+        description="Retrieve available booking time slots for an expert",
+        read_only=True,
+        required_fields=["expert_user_id"]
+    ),
     "create_booking": Capability(
         name="create_booking",
         description="Book a session with an expert",
@@ -171,3 +202,4 @@ CAPABILITY_REGISTRY: Dict[str, Capability] = {
 
 def get_capability(name: str) -> Optional[Capability]:
     return CAPABILITY_REGISTRY.get(name)
+

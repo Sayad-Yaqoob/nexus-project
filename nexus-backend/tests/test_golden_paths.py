@@ -199,3 +199,66 @@ def test_state_contamination_regression():
     assert "matches" in d4["response_data"]
     assert len(d4["response_data"]["matches"]) > 0
 
+def test_subscription_semantic_resolution():
+    auth_resp = client.post("/api/v1/auth/mimic", json={"role": "expert"})
+    assert auth_resp.status_code == 200
+    token = auth_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # "Create a subscription plan for clients for $25/month"
+    r = client.post("/api/v1/agent/chat", headers=headers, json={"message": "Create a subscription plan for clients for $25/month"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["response_type"] == "action_preview"
+    assert data["draft"]["offer_type"] == "Subscription"
+    assert data["draft"]["price"] == 25.0
+
+def test_book_semantic_resolution():
+    auth_resp = client.post("/api/v1/auth/mimic", json={"role": "expert"})
+    assert auth_resp.status_code == 200
+    token = auth_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # "I want to sell my new book for $300"
+    r = client.post("/api/v1/agent/chat", headers=headers, json={"message": "I want to sell my new book for $300"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["response_type"] == "action_preview"
+    assert data["draft"]["offer_type"] == "Book"
+    assert data["draft"]["price"] == 300.0
+
+def test_screen_context_resolution():
+    auth_resp = client.post("/api/v1/auth/mimic", json={"role": "expert"})
+    assert auth_resp.status_code == 200
+    token = auth_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # User is on /sell/books and says "Create another one for $250"
+    agent_ctx = {
+        "user": {"id": 1, "role": "expert"},
+        "capabilities": ["client", "expert"],
+        "perspective": "expert",
+        "route": "/sell/books",
+        "screen": "books_manager"
+    }
+    r = client.post("/api/v1/agent/chat", headers=headers, json={"message": "Create another one for $250", "agent_context": agent_ctx})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["response_type"] == "action_preview"
+    assert data["draft"]["offer_type"] == "Book"
+    assert data["draft"]["price"] == 250.0
+
+def test_navigation_action():
+    auth_resp = client.post("/api/v1/auth/mimic", json={"role": "client"})
+    assert auth_resp.status_code == 200
+    token = auth_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    r = client.post("/api/v1/agent/chat", headers=headers, json={"message": "Take me to my bookings"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["response_type"] == "navigation"
+    assert data["navigation"] is not None
+    assert data["navigation"]["route"] == "/my-bookings"
+
+

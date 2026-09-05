@@ -1,9 +1,9 @@
 import re
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, Field
-
 from services.adapters import DataAdapter, Offering
+
+Union_ID = Union[str, int]
 
 
 class Availability(BaseModel):
@@ -12,28 +12,57 @@ class Availability(BaseModel):
     end: Optional[str] = None
 
 
-class OfferingExtraction(BaseModel):
-    offer_type: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-    price: Optional[float] = None
-    currency: Optional[str] = None
-    duration: Optional[str] = None
-    availability: Optional[Availability] = None
-
-
 class OfferingDraft(BaseModel):
+    id: Optional[Union_ID] = None
     title: Optional[str] = None
     offer_type: str = "1:1 Session"
     price: Optional[float] = None
     currency: str = "USD"
     duration: Optional[str] = None
     description: Optional[str] = None
+    
+    # Subscription specific fields
+    billing_period: Optional[str] = "monthly"
+    benefits: List[str] = Field(default_factory=list)
+    
+    # Book specific fields
+    author: Optional[str] = None
+    tagline: Optional[str] = None
+    overview: Optional[str] = None
+    buy_now_pdf: Optional[str] = None
+    amazon_link: Optional[str] = None
+    custom_link: Optional[str] = None
+    front_cover: Optional[str] = None
+    back_cover: Optional[str] = None
+    
+    # Digital product / File fields
+    file_required: bool = False
+    file_path: Optional[str] = None
+    delivery_link: Optional[str] = None
+    
+    # Highlight specific fields
+    image_url: Optional[str] = None
+    link_url: Optional[str] = None
+    
     availability: Optional[Availability] = None
 
 
+def parse_price(text: str) -> Optional[float]:
+    match = re.search(
+        r"(?:[$€£]\s*|(?:usd|dollars?|eur|euros?|gbp|pounds?)\s*)(\d+(?:\.\d{1,2})?)|(\d+(?:\.\d{1,2})?)\s*(?:[$€£]|usd|dollars?|eur|euros?|gbp|pounds?|/month|/mo|a month|monthly)",
+        text,
+        re.I
+    )
+    if not match:
+        if any(k in text.lower() for k in ["$", "price", "cost", "charge", "sell", "for"]):
+            num_match = re.search(r"\b(\d+(?:\.\d{1,2})?)\b", text)
+            if num_match:
+                return float(num_match.group(1))
+        return None
+    return float(match.group(1) or match.group(2))
 
-def _duration(text: str) -> Optional[str]:
+
+def parse_duration(text: str) -> Optional[str]:
     match = re.search(r"(\d+(?:\.\d+)?)\s*(hour|hours|hr|hrs|minute|minutes|min|mins)", text, re.I)
     if not match:
         return None
@@ -46,116 +75,102 @@ def _duration(text: str) -> Optional[str]:
     return f"{minutes} min"
 
 
-def _price(text: str) -> Optional[float]:
-    match = re.search(r"(?:[$€£]\s*|(?:usd|dollars?|eur|euros?|gbp|pounds?)\s*)(\d+(?:\.\d{1,2})?)|(\d+(?:\.\d{1,2})?)\s*(?:[$€£]|usd|dollars?|eur|euros?|gbp|pounds?)", text, re.I)
-    if not match:
-        return None
-    return float(match.group(1) or match.group(2))
-
-
-def _availability(text: str) -> Optional[Availability]:
-    lowered = text.lower()
-    days: List[str] = []
-    if "weekend" in lowered:
-        days = ["Saturday", "Sunday"]
-    else:
-        day_names = {
-            "monday": "Monday", "tuesday": "Tuesday", "wednesday": "Wednesday",
-            "thursday": "Thursday", "friday": "Friday", "saturday": "Saturday",
-            "sunday": "Sunday",
-        }
-        days = [name for key, name in day_names.items() if key in lowered]
-    times = re.findall(r"\b(?:[01]?\d|2[0-3])(?::[0-5]\d)?\s*(?:am|pm)?\b", lowered)
-    if not days and len(times) < 2:
-        return None
-
-    def normalize(value: str) -> str:
-        value = value.strip().lower().replace(" ", "")
-        match = re.fullmatch(r"(\d{1,2})(?::(\d{2}))?(am|pm)?", value)
-        if not match:
-            return value
-        hour = int(match.group(1))
-        minute = int(match.group(2) or 0)
-        suffix = match.group(3)
-        if suffix == "pm" and hour < 12:
-            hour += 12
-        if suffix == "am" and hour == 12:
-            hour = 0
-        return f"{hour:02d}:{minute:02d}"
-
-    return Availability(
-        days=days,
-        start=normalize(times[0]) if len(times) >= 2 else None,
-        end=normalize(times[1]) if len(times) >= 2 else None,
-    )
-
-
-def extract_offering_entities(message: str) -> OfferingExtraction:
+def resolve_offering_type(message: str, current_screen: Optional[str] = None) -> str:
     lowered = message.lower()
-    if "digital product" in lowered or "pdf" in lowered or "template" in lowered:
-        offering_type = "Digital Product"
-    elif "subscription" in lowered:
-        offering_type = "Subscription"
-    elif "custom offer" in lowered:
-        offering_type = "Custom Offer"
-    elif "book" in lowered:
-        offering_type = "Book"
-    elif "session" in lowered or "consult" in lowered or "call" in lowered or "1:1" in lowered or "one-on-one" in lowered:
-        offering_type = "1:1 Session"
-    else:
-        offering_type = "1:1 Session"
+    
+    # Explicit keywords override screen context
+    if "book" in lowered or "ebook" in lowered or "publish my book" in lowered:
+        return "Book"
+    if "subscription" in lowered or "monthly plan" in lowered or "recurring" in lowered or "every month" in lowered or "/month" in lowered or "/mo" in lowered:
+        return "Subscription"
+    if "digital product" in lowered or "pdf" in lowered or "zip" in lowered or "template" in lowered or "downloadable" in lowered:
+        return "Digital Product"
+    if "highlight" in lowered or "card" in lowered:
+        return "Highlight"
+    if "custom offer" in lowered or "custom service" in lowered:
+        return "Custom Offer"
+    if "1:1" in lowered or "one-on-one" in lowered or "session" in lowered or "consult" in lowered or "advisory" in lowered or "call" in lowered:
+        return "1:1 Session"
 
+    # Fallback to screen context if natural language is ambiguous (e.g. "Create another one for $250")
+    if current_screen:
+        screen_low = current_screen.lower()
+        if "book" in screen_low:
+            return "Book"
+        if "subscription" in screen_low:
+            return "Subscription"
+        if "digital" in screen_low:
+            return "Digital Product"
+        if "highlight" in screen_low:
+            return "Highlight"
+        if "custom" in screen_low:
+            return "Custom Offer"
+
+    return "1:1 Session"
+
+
+def extract_offering_entities(message: str, current_screen: Optional[str] = None) -> OfferingDraft:
+    offering_type = resolve_offering_type(message, current_screen)
+    price = parse_price(message)
+    duration = parse_duration(message)
+    lowered = message.lower()
+    
     title_match = re.search(r"(?:title|called|named)\s*(?:is|:)?\s*[\"']?([^\"'.!,?]+)", message, re.I)
     title = title_match.group(1).strip() if title_match else None
-
+    
     if not title:
-        topic_match = re.search(r"(?:offering|session about|consulting for|advisory on)\s+([a-zA-Z0-9\s&]+?)(?:\.|\$|total|for|\d+|$)", message, re.I)
+        topic_match = re.search(r"(?:offering|session about|consulting for|advisory on|book about|subscription for)\s+([a-zA-Z0-9\s&]+?)(?:\.|\$|total|for|\d+|$)", message, re.I)
         if topic_match:
             raw_topic = topic_match.group(1).strip()
             raw_topic = re.sub(r"\b(and other related things|and related things|and so on|total time|total|time)\b", "", raw_topic, flags=re.I).strip()
             if raw_topic and len(raw_topic) > 2:
-                words = [w.capitalize() for w in raw_topic.split()]
-                topic_title = " ".join(words)
-                if "Session" not in topic_title and offering_type == "1:1 Session":
-                    title = f"{topic_title} Session"
-                else:
-                    title = topic_title
+                title = " ".join([w.capitalize() for w in raw_topic.split()])
 
-    if not title or len(title) < 3 or title.lower() in ["for", "a", "an", "the", "session"]:
+    if not title or len(title) < 3 or title.lower() in ["for", "a", "an", "the", "session", "book", "subscription"]:
         if "marketing" in lowered:
-            title = "Marketing Strategy Session"
-        elif offering_type == "1:1 Session":
-            title = "1:1 Advisory Session"
+            title = f"Marketing {offering_type}"
+        elif "ai" in lowered or "rag" in lowered or "llm" in lowered:
+            title = f"AI Advisory {offering_type}"
+        elif offering_type == "Book":
+            title = "My New Book"
+        elif offering_type == "Subscription":
+            title = "Monthly Advisory Club"
+        elif offering_type == "Digital Product":
+            title = "Specialist Digital Playbook"
         else:
-            title = f"Custom {offering_type}"
+            title = f"1:1 {offering_type}"
 
-    description = f"{title} consulting and advisory."
-    if "offering" in lowered:
-        desc_match = re.search(r"offering\s+([^.$]+)", message, re.I)
-        if desc_match:
-            description = desc_match.group(1).strip().capitalize()
-            if not description.endswith('.'):
-                description += "."
+    description = f"{title} — premium {offering_type.lower()} on MindGigs."
+    
+    file_required = offering_type in ["Book", "Digital Product"]
+    
+    billing_period = "monthly"
+    if "yearly" in lowered or "annual" in lowered:
+        billing_period = "yearly"
 
-    return OfferingExtraction(
-        offer_type=offering_type,
+    return OfferingDraft(
         title=title,
-
+        offer_type=offering_type,
+        price=price,
+        duration=duration or ("N/A" if file_required else "60 min"),
         description=description,
-        price=_price(message),
-        currency="USD" if re.search(r"\$|usd|dollar", lowered) else "USD",
-        duration=_duration(message) or "60 min",
-        availability=_availability(message),
+        billing_period=billing_period if offering_type == "Subscription" else None,
+        file_required=file_required
     )
 
 
-def merge_draft(previous: Optional[Dict[str, Any]], extraction: OfferingExtraction) -> OfferingDraft:
-    values: Dict[str, Any] = dict(previous or {})
-    incoming = extraction.model_dump(exclude_none=True)
-    if "availability" in incoming:
-        incoming["availability"] = extraction.availability.model_dump(exclude_none=True) if extraction.availability else None
-    values.update(incoming)
-    return OfferingDraft.model_validate(values)
+def merge_draft(previous: Optional[Dict[str, Any]], incoming_draft: OfferingDraft) -> OfferingDraft:
+    if not previous:
+        return incoming_draft
+    
+    prev_type = previous.get("offer_type", "1:1 Session")
+    if prev_type != incoming_draft.offer_type:
+        return incoming_draft
+        
+    merged_dict = dict(previous)
+    inc_dict = incoming_draft.model_dump(exclude_none=True)
+    merged_dict.update(inc_dict)
+    return OfferingDraft.model_validate(merged_dict)
 
 
 async def execute_offering(
@@ -164,19 +179,24 @@ async def execute_offering(
     draft: OfferingDraft,
 ) -> Dict[str, Any]:
     if draft.title is None or draft.price is None:
-        raise ValueError("The offering draft is incomplete.")
+        raise ValueError("Title and Price are required before publishing an offering.")
+        
     profile = await data_adapter.get_expert_profile(str(user_id))
     if profile is None or str(profile.user_id) != str(user_id):
-        raise PermissionError("Only an authenticated expert with an expert profile can publish an offering.")
+        raise PermissionError("Only an authenticated expert account can publish an offering.")
+        
     offering = Offering(
         title=draft.title,
         offer_type=draft.offer_type,
         price=draft.price,
-        duration=draft.duration,
-        description=draft.description,
+        duration=draft.duration or ("N/A" if draft.file_required else "60 min"),
+        description=draft.description or f"{draft.title} on MindGigs",
+        file_required=draft.file_required
     )
+    
     offering_id = await data_adapter.save_offering(str(profile.id), offering)
     refreshed = await data_adapter.get_user_context(user_id)
+    
     return {
         "id": offering_id,
         "title": draft.title,
@@ -185,6 +205,8 @@ async def execute_offering(
         "currency": draft.currency,
         "duration": draft.duration,
         "description": draft.description,
-        "availability": draft.availability.model_dump() if draft.availability else None,
-        "context_refreshed": refreshed is not None,
+        "file_required": draft.file_required,
+        "file_path": draft.file_path,
+        "verified_in_db": refreshed is not None,
     }
+

@@ -11,6 +11,7 @@ router = APIRouter()
 class AgentChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
+    agent_context: Optional[Dict[str, Any]] = None
     current_route: Optional[str] = None
     current_perspective: Optional[str] = None
 
@@ -27,6 +28,7 @@ class AgentChatResponse(BaseModel):
     requires_confirmation: bool = False
     confirmation: Optional[Dict[str, Any]] = None
     response_data: Optional[Dict[str, Any]] = None
+    navigation: Optional[Dict[str, Any]] = None
 
 @router.post("/agent/chat", response_model=AgentChatResponse)
 async def agent_chat(
@@ -52,10 +54,10 @@ async def agent_chat(
         user_id=user_id,
         message=req.message.strip(),
         session_id=req.session_id,
+        agent_context=req.agent_context,
         current_route=req.current_route,
         current_perspective=req.current_perspective
     )
-
 
     return AgentChatResponse(**result)
 

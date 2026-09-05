@@ -23,5 +23,9 @@ class NexusState(TypedDict, total=False):
     response_data: Optional[Dict[str, Any]]
     current_route: Optional[str]
     current_perspective: Optional[str]
+    target_route: Optional[str]
+    navigation_action: Optional[Dict[str, Any]]
+    agent_context: Optional[Dict[str, Any]]
+
 
 

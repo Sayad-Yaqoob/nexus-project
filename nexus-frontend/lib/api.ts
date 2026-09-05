@@ -61,12 +61,17 @@ export async function getMe(): Promise<User> {
   return res.json();
 }
 
-export async function sendAgentMessage(message: string, sessionId?: string): Promise<AgentChatResponse> {
+export async function sendAgentMessage(
+  message: string,
+  agentContext?: Record<string, unknown>,
+  sessionId?: string
+): Promise<AgentChatResponse> {
   const res = await fetch(`${API_BASE}/agent/chat`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({
       message,
+      agent_context: agentContext,
       session_id: sessionId,
     }),
   });

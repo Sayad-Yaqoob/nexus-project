@@ -5,6 +5,18 @@ export interface User {
   role: 'expert' | 'client' | 'admin';
   public_handle: string;
   currency?: string;
+  capabilities?: ('client' | 'expert')[];
+  perspective?: 'client' | 'expert';
+}
+
+export interface AgentContext {
+  user: User;
+  capabilities: ('client' | 'expert')[];
+  perspective: 'client' | 'expert';
+  route: string;
+  screen: string;
+  selected_entity?: Record<string, unknown> | null;
+  active_task?: Record<string, unknown> | null;
 }
 
 export interface AgentMessage {
@@ -19,6 +31,10 @@ export interface AgentMessage {
   requires_confirmation?: boolean;
   action_result?: Record<string, unknown>;
   response_data?: Record<string, unknown>;
+  navigation?: {
+    route: string;
+    params?: Record<string, unknown>;
+  };
 }
 
 export type ResponseType =
@@ -48,6 +64,10 @@ export interface AgentChatResponse {
   requires_confirmation: boolean;
   confirmation?: { action?: string };
   response_data?: Record<string, unknown>;
+  navigation?: {
+    route: string;
+    params?: Record<string, unknown>;
+  };
 }
 
 export interface TokenResponse {
@@ -59,7 +79,7 @@ export interface TokenResponse {
 export interface OfferingDraft {
   id?: number | string;
   title?: string;
-  offer_type: '1:1 Session' | 'Subscription' | 'Digital Product' | 'Custom Offer' | 'Book' | 'Highlight';
+  offer_type?: '1:1 Session' | 'Subscription' | 'Digital Product' | 'Custom Offer' | 'Book' | 'Highlight' | string;
   price?: number;
   duration?: string;
   description?: string;
@@ -67,6 +87,11 @@ export interface OfferingDraft {
   file_path?: string;
   file_placeholder_valid?: boolean;
   currency?: string;
+  professional_headline?: string;
+  category?: string;
+  bio?: string;
+  expertise_tags?: string | string[];
+  full_name?: string;
   availability?: {
     days: string[];
     start?: string;

@@ -2,225 +2,362 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from './AuthContext';
 import { 
-  Sparkles, Bot, LogOut, User as UserIcon, RefreshCw, ShieldCheck, Zap,
-  Search, Calendar, ShoppingBag, Award, DollarSign, Layers, BookOpen,
-  Mail, Star, Settings, Bell, CreditCard, ChevronRight
+  LayoutDashboard, Calendar, ShoppingBag, Search, 
+  UserCheck, DollarSign, BookOpen, Star, Mail, Settings, 
+  Bell, CreditCard, LogOut, RefreshCw, Share2, Layers, Tag, ChevronRight, Award, Zap
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const currentTab = searchParams ? searchParams.get('tab') : null;
-  const { user, logout, loginAsMimic } = useAuth();
+  const { user, perspective, setPerspective, logout, loginAsMimic } = useAuth();
   const [switching, setSwitching] = useState(false);
 
-  const isTabActive = (tabName: string) => {
-    if (pathname === '/nexus') {
-      if (!currentTab && tabName === 'agent_canvas') return true;
-      return currentTab === tabName;
+  const isActive = (path: string) => pathname === path;
+
+  const isExpertAccount = user?.role === 'expert' || user?.capabilities?.includes('expert');
+  const isExpertPerspective = isExpertAccount && (perspective === 'expert' || user?.perspective === 'expert');
+
+  const handleSwitchPerspective = (newPerspective: 'client' | 'expert') => {
+    if (setPerspective) {
+      setPerspective(newPerspective);
     }
-    return false;
   };
 
-  const handleSwitchPersona = async () => {
+  const handleDemoSwitch = async () => {
     setSwitching(true);
     try {
       const targetRole = user?.role === 'expert' ? 'client' : 'expert';
       await loginAsMimic(targetRole);
       router.refresh();
     } catch (err) {
-      console.error('Failed to switch persona:', err);
+      console.error('Failed to switch demo persona:', err);
     } finally {
       setSwitching(false);
     }
   };
 
-  const isExpert = user?.role === 'expert';
-
   return (
-    <aside className="w-64 bg-[#070D18] border-r border-slate-800/80 h-screen sticky top-0 flex flex-col justify-between overflow-y-auto scrollbar-none z-30 select-none text-slate-300">
+    <aside className="w-64 bg-[#0B1320] border-r border-[#1E293B] h-screen sticky top-0 flex flex-col justify-between overflow-y-auto scrollbar-none z-30 select-none text-slate-300">
       <div>
         {/* Brand Header */}
-        <Link href="/" className="p-5 border-b border-slate-800/80 flex items-center gap-3 hover:bg-[#0B1320] transition-colors group">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#00C49F] to-emerald-600 text-slate-950 font-black flex items-center justify-center text-xl shadow-md shadow-[#00C49F]/20 group-hover:scale-105 transition-transform">
-            m
-          </div>
-          <div>
-            <h1 className="font-extrabold text-white tracking-tight text-lg leading-none">mindGigs</h1>
-            <span className="text-[10px] uppercase text-[#00C49F] font-bold tracking-wider">
-              powered by NEXUS
+        <div className="p-5 border-b border-[#1E293B] flex items-center justify-between">
+          <Link href="/overview" className="flex items-center gap-2.5 group">
+            <span className="font-black text-[#00C49F] text-2xl tracking-tight leading-none group-hover:scale-105 transition-transform">
+              mindGigs
             </span>
-          </div>
-        </Link>
+          </Link>
+          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider border ${
+            isExpertAccount
+              ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+              : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+          }`}>
+            {isExpertAccount ? 'EXPERT' : 'MEMBER'}
+          </span>
+        </div>
 
-        {/* Primary Navigation Sections */}
-        <div className="p-3 space-y-5">
-          {/* Overview */}
+        {/* Perspective Switcher for Experts */}
+        {isExpertAccount && (
+          <div className="p-3 border-b border-[#1E293B] bg-[#070D18]">
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 px-1">
+              Active Perspective
+            </div>
+            <div className="grid grid-cols-2 gap-1 bg-[#112233] p-1 rounded-xl border border-slate-800">
+              <button
+                onClick={() => handleSwitchPerspective('client')}
+                className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  !isExpertPerspective
+                    ? 'bg-[#00C49F] text-slate-950 shadow-xs'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Client
+              </button>
+              <button
+                onClick={() => handleSwitchPerspective('expert')}
+                className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  isExpertPerspective
+                    ? 'bg-[#00C49F] text-slate-950 shadow-xs'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Expert
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation Sections */}
+        <nav className="p-3 space-y-4 text-xs font-medium">
+          {/* DASHBOARD SECTION */}
           <div>
-            <div className="px-3 pb-2 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
-              Overview
+            <div className="px-3 pb-1.5 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+              Dashboard
             </div>
             <Link
-              href="/nexus"
-              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl font-semibold text-xs transition-all duration-200 ${
-                isTabActive('agent_canvas')
-                  ? 'bg-[#112233] text-[#00C49F] border border-[#00C49F]/40 shadow-sm'
-                  : 'text-slate-300 hover:bg-[#112233]/60 hover:text-white'
+              href="/overview"
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors ${
+                isActive('/overview')
+                  ? 'bg-[#112233] text-[#00C49F] font-bold border-l-2 border-[#00C49F]'
+                  : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
               }`}
             >
-              <Sparkles className="w-4 h-4 text-[#00C49F]" />
-              <span>NEXUS Agent Canvas</span>
+              <LayoutDashboard className="w-4 h-4" />
+              <span>Overview</span>
             </Link>
           </div>
 
-          {/* BUY Section (Client & Expert) */}
+          {/* BUY SECTION */}
           <div>
-            <div className="px-3 pb-2 text-[10px] font-extrabold uppercase tracking-wider text-emerald-400/80 flex items-center justify-between">
-              <span>BUY</span>
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-semibold border border-emerald-500/20">Client</span>
+            <div className="px-3 pb-1.5 text-[10px] font-extrabold text-emerald-400/80 uppercase tracking-wider">
+              Buy
             </div>
             <div className="space-y-1">
               <Link
-                href="/nexus?tab=match_search"
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-                  isTabActive('match_search')
-                    ? 'bg-slate-800 text-white font-semibold border border-slate-700'
-                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
-                }`}
-              >
-                <Search className="w-4 h-4 text-emerald-400" />
-                <span>Find Experts</span>
-              </Link>
-              <Link
-                href="/nexus?tab=bookings"
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-                  isTabActive('bookings')
-                    ? 'bg-slate-800 text-white font-semibold border border-slate-700'
-                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                href="/my-bookings"
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors ${
+                  isActive('/my-bookings')
+                    ? 'bg-[#112233] text-[#00C49F] font-bold border-l-2 border-[#00C49F]'
+                    : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
                 }`}
               >
                 <Calendar className="w-4 h-4 text-emerald-400" />
                 <span>My Bookings</span>
               </Link>
-              <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 cursor-not-allowed">
-                <ShoppingBag className="w-4 h-4 text-slate-600" />
+              <Link
+                href="/my-purchases"
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors ${
+                  isActive('/my-purchases')
+                    ? 'bg-[#112233] text-[#00C49F] font-bold border-l-2 border-[#00C49F]'
+                    : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                }`}
+              >
+                <ShoppingBag className="w-4 h-4 text-emerald-400" />
                 <span>My Purchases</span>
-              </div>
+              </Link>
             </div>
           </div>
 
-          {/* SELL Section (ONLY for Expert accounts) */}
-          {isExpert && (
+          {/* SELL SECTION (Visible ONLY in Expert Perspective) */}
+          {isExpertPerspective && (
             <div>
-              <div className="px-3 pb-2 text-[10px] font-extrabold uppercase tracking-wider text-purple-400/80 flex items-center justify-between">
-                <span>SELL</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-300 font-semibold border border-purple-500/20">Expert</span>
+              <div className="px-3 pb-1.5 text-[10px] font-extrabold text-purple-400/80 uppercase tracking-wider flex items-center justify-between">
+                <span>Sell</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">Expert</span>
               </div>
               <div className="space-y-1">
                 <Link
-                  href="/nexus?tab=my_offers"
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-                    isTabActive('my_offers')
-                      ? 'bg-slate-800 text-white font-semibold border border-slate-700'
-                      : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                  href="/sell/profile"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                    isActive('/sell/profile') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
                   }`}
                 >
-                  <Layers className="w-4 h-4 text-purple-400" />
+                  <UserCheck className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Expert Profile</span>
+                </Link>
+                <Link
+                  href="/sell/offers"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                    isActive('/sell/offers') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5 text-purple-400" />
                   <span>My Offers</span>
                 </Link>
                 <Link
-                  href="/nexus?tab=bookings"
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-                    isTabActive('bookings')
-                      ? 'bg-slate-800 text-white font-semibold border border-slate-700'
-                      : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                  href="/sell/incoming-bookings"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                    isActive('/sell/incoming-bookings') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
                   }`}
                 >
-                  <Calendar className="w-4 h-4 text-purple-400" />
+                  <Calendar className="w-3.5 h-3.5 text-purple-400" />
                   <span>Incoming Bookings</span>
                 </Link>
-                <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:bg-slate-800/50 hover:text-slate-200">
-                  <DollarSign className="w-4 h-4 text-purple-400" />
-                  <span>Earnings & Payouts</span>
-                </div>
-                <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-500">
-                  <BookOpen className="w-4 h-4 text-slate-600" />
-                  <span>Books & Digital Products</span>
-                </div>
+                <Link
+                  href="/sell/earnings"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                    isActive('/sell/earnings') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                  }`}
+                >
+                  <DollarSign className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Earnings</span>
+                </Link>
+                <Link
+                  href="/sell/sessions"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                    isActive('/sell/sessions') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5 text-purple-400" />
+                  <span>1:1 Sessions</span>
+                </Link>
+                <Link
+                  href="/sell/subscriptions"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                    isActive('/sell/subscriptions') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                  }`}
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Subscriptions</span>
+                </Link>
+                <Link
+                  href="/sell/products"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                    isActive('/sell/products') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                  }`}
+                >
+                  <ShoppingBag className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Digital Products</span>
+                </Link>
+                <Link
+                  href="/sell/books"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                    isActive('/sell/books') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                  }`}
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Books</span>
+                </Link>
+                <Link
+                  href="/sell/highlights"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                    isActive('/sell/highlights') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                  }`}
+                >
+                  <Award className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Highlights</span>
+                </Link>
+                <Link
+                  href="/sell/custom"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                    isActive('/sell/custom') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                  }`}
+                >
+                  <Star className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Custom Offerings</span>
+                </Link>
+                <Link
+                  href="/sell/newsletter"
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                    isActive('/sell/newsletter') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                  }`}
+                >
+                  <Mail className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Newsletter</span>
+                </Link>
               </div>
             </div>
           )}
 
-          {/* ACCOUNT Section */}
+          {/* AFFILIATE SECTION */}
           <div>
-            <div className="px-3 pb-2 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+            <div className="px-3 pb-1.5 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+              Affiliate
+            </div>
+            <div className="space-y-1">
+              <Link
+                href="/affiliate/links"
+                className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                  isActive('/affiliate/links') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                }`}
+              >
+                <Share2 className="w-3.5 h-3.5 text-slate-400" />
+                <span>Links & Codes</span>
+              </Link>
+              <Link
+                href="/affiliate/earnings"
+                className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                  isActive('/affiliate/earnings') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                }`}
+              >
+                <DollarSign className="w-3.5 h-3.5 text-slate-400" />
+                <span>Earnings & Payouts</span>
+              </Link>
+              <Link
+                href="/affiliate/history"
+                className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                  isActive('/affiliate/history') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                }`}
+              >
+                <Tag className="w-3.5 h-3.5 text-slate-400" />
+                <span>History</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* ACCOUNT SECTION */}
+          <div>
+            <div className="px-3 pb-1.5 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
               Account
             </div>
             <div className="space-y-1">
-              <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:bg-slate-800/50 hover:text-slate-200">
-                <Settings className="w-4 h-4 text-slate-400" />
-                <span>General Settings</span>
-              </div>
-              <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:bg-slate-800/50 hover:text-slate-200">
-                <Bell className="w-4 h-4 text-slate-400" />
+              <Link
+                href="/account/general"
+                className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                  isActive('/account/general') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                }`}
+              >
+                <Settings className="w-3.5 h-3.5 text-slate-400" />
+                <span>General</span>
+              </Link>
+              <Link
+                href="/account/notifications"
+                className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                  isActive('/account/notifications') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                }`}
+              >
+                <Bell className="w-3.5 h-3.5 text-slate-400" />
                 <span>Notifications</span>
-              </div>
+              </Link>
+              <Link
+                href="/account/billing"
+                className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors ${
+                  isActive('/account/billing') ? 'bg-[#112233] text-[#00C49F] font-bold' : 'text-slate-400 hover:text-white hover:bg-[#112233]/60'
+                }`}
+              >
+                <CreditCard className="w-3.5 h-3.5 text-slate-400" />
+                <span>Billing</span>
+              </Link>
             </div>
           </div>
-        </div>
-
-        {/* Active User Persona Card */}
-        {user && (
-          <div className="mx-3 mt-2 p-3.5 rounded-xl bg-[#0F172A] border border-slate-800 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded uppercase border ${
-                isExpert
-                  ? 'bg-purple-500/10 text-purple-300 border-purple-500/30'
-                  : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-              }`}>
-                {user.role}
-              </span>
-              <span className="text-[10px] text-slate-400 font-mono">@{user.public_handle}</span>
-            </div>
-
-            <div>
-              <div className="font-semibold text-white text-xs truncate">{user.full_name}</div>
-              <div className="text-[11px] text-slate-400 truncate">{user.email}</div>
-            </div>
-
-            <button
-              onClick={handleSwitchPersona}
-              disabled={switching}
-              className="w-full py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold rounded-lg flex items-center justify-center gap-1.5 border border-slate-700 transition-colors"
-            >
-              <RefreshCw className={`w-3 h-3 text-[#00C49F] ${switching ? 'animate-spin' : ''}`} />
-              Switch to {isExpert ? 'Client' : 'Expert'} Demo
-            </button>
-          </div>
-        )}
+        </nav>
       </div>
 
-      {/* Footer Controls */}
-      <div className="p-4 border-t border-slate-800/80 space-y-3">
-        <div className="flex items-center gap-2 text-xs text-slate-400 px-1">
-          <Bot className="w-4 h-4 text-[#00C49F]" />
-          <span>NexusGraph Active</span>
-        </div>
+      {/* Bottom Controls */}
+      <div className="p-3 border-t border-[#1E293B] space-y-2 bg-[#070D18]">
+        {/* Bottom CTA / Action */}
+        {!isExpertAccount && (
+          <button
+            onClick={handleDemoSwitch}
+            className="w-full py-2 px-3 bg-gradient-to-r from-[#00C49F] to-emerald-600 text-slate-950 text-xs font-bold rounded-xl flex items-center justify-between shadow-xs hover:opacity-95 transition-opacity"
+          >
+            <span>Start Selling</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
 
-        <button
-          onClick={() => {
-            logout();
-            router.push('/login');
-          }}
-          className="w-full py-2 px-3 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 text-xs font-semibold flex items-center justify-center gap-2 transition-all"
+        <Link
+          href="/experts"
+          className="w-full py-2 px-3 bg-[#112233] hover:bg-[#162a3f] text-slate-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 border border-slate-700 transition-colors"
         >
-          <LogOut className="w-4 h-4" />
-          Logout Session
-        </button>
+          <Search className="w-3.5 h-3.5 text-[#00C49F]" />
+          <span>Find Experts</span>
+        </Link>
+
+        {/* Demo Switcher */}
+        {user && (
+          <button
+            onClick={handleDemoSwitch}
+            disabled={switching}
+            className="w-full py-1.5 px-3 bg-slate-800/80 hover:bg-slate-700/80 text-slate-400 text-[11px] font-medium rounded-lg flex items-center justify-between border border-slate-800"
+          >
+            <span>Demo User: {user.full_name.split(' ')[0]} ({user.role})</span>
+            <RefreshCw className={`w-3 h-3 text-[#00C49F] ${switching ? 'animate-spin' : ''}`} />
+          </button>
+        )}
       </div>
     </aside>
   );

@@ -15,6 +15,7 @@ class AgentService:
         user_id: int,
         message: str,
         session_id: Optional[str] = None,
+        agent_context: Optional[Dict[str, Any]] = None,
         current_route: Optional[str] = None,
         current_perspective: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -37,6 +38,17 @@ class AgentService:
         user = await data_adapter.get_user_by_id(user_id)
         role = user.role if user else "client"
 
+        # Check perspective override from agent_context or parameter
+        perspective = current_perspective
+        if not perspective and agent_context:
+            perspective = agent_context.get("perspective")
+        if not perspective:
+            perspective = role
+
+        route = current_route
+        if not route and agent_context:
+            route = agent_context.get("route")
+
         # Check if user message is an explicit continuation of a pending task
         pending_act = saved_state.get("pending_action", {}).get("action")
         msg_low = message.lower().strip()
@@ -50,8 +62,9 @@ class AgentService:
             "role": role,
             "message": message,
             "conversation_history": existing_history,
-            "current_route": current_route,
-            "current_perspective": current_perspective or role
+            "agent_context": agent_context or {},
+            "current_route": route,
+            "current_perspective": perspective
         }
 
         if is_continuing:
@@ -60,7 +73,6 @@ class AgentService:
                 for key in ("intent", "extracted_entities", "draft", "pending_action", "requires_confirmation", "confirmation_action")
                 if key in saved_state
             })
-
 
         # 4. Invoke graph execution
         final_state = await nexus_graph.ainvoke(initial_state)
@@ -80,5 +92,6 @@ class AgentService:
                 "action": final_state.get("confirmation_action")
             } if final_state.get("requires_confirmation") else None,
             "response_data": final_state.get("response_data"),
+            "navigation": final_state.get("navigation_action"),
             "conversation_history": final_state.get("conversation_history", [])
         }

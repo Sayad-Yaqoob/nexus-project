@@ -1,0 +1,80 @@
+[
+  {
+    "id": 2,
+    "user_id": 2,
+    "full_name": "Dr. Sophia Chen",
+    "public_handle": "sophia_ai",
+    "email": "sophia.chen@example.com",
+    "headline": "Lead AI Research Scientist & LLM Architect",
+    "category": "AI & Data",
+    "bio": "10+ years leading AI development at top labs. Specialized in LLM fine-tuning, RAG pipelines, and agentic workflows.",
+    "tags": ["LLMs", "PyTorch", "RAG", "Agentic Systems", "LangChain", "Vector DBs"],
+    "hourly_rate": 350.0,
+    "currency": "USD"
+  },
+  {
+    "id": 14,
+    "user_id": 14,
+    "full_name": "Simon Alexander Ong",
+    "public_handle": "simon_ong",
+    "email": "simon.ong@example.com",
+    "headline": "Executive Performance Strategist & Author of Feel-Good Productivity",
+    "category": "Coaching & Leadership",
+    "bio": "Bestselling author and executive coach helping entrepreneurs and leaders master energy management and burnout recovery.",
+    "tags": ["Executive Coaching", "Energy Management", "Burnout Recovery", "Personal Brand"],
+    "hourly_rate": 450.0,
+    "currency": "USD"
+  },
+  {
+    "id": 18,
+    "user_id": 18,
+    "full_name": "Marcus Vance",
+    "public_handle": "marcus_mkt",
+    "email": "marcus.vance@example.com",
+    "headline": "Senior Global Book Marketing & Launch Strategist",
+    "category": "Marketing & Growth",
+    "bio": "Helped 40+ authors hit international bestseller lists. Expert in audience building, Amazon KDP ads, and launch funnels.",
+    "tags": ["Book Launch", "Global Marketing", "Amazon KDP", "Author Branding", "Funnel Strategy"],
+    "hourly_rate": 300.0,
+    "currency": "USD"
+  },
+  {
+    "id": 8,
+    "user_id": 8,
+    "full_name": "Jessica Miller",
+    "public_handle": "jess_mobile",
+    "email": "jessica.miller@example.com",
+    "headline": "Lead Mobile Architect (Flutter & React Native)",
+    "category": "Software Development",
+    "bio": "Building high-performance iOS and Android applications. Specialized in Flutter, React Native, and mobile security.",
+    "tags": ["Flutter", "React Native", "iOS", "Android", "Dart", "Firebase"],
+    "hourly_rate": 220.0,
+    "currency": "USD"
+  },
+  {
+    "id": 12,
+    "user_id": 12,
+    "full_name": "Carlos Gomez",
+    "public_handle": "carlos_biz",
+    "email": "carlos.gomez@example.com",
+    "headline": "Six Sigma Black Belt & Process Automation Lead",
+    "category": "Operations & Supply Chain",
+    "bio": "Helping scaling companies optimize business operations, automate workflows, and reduce operational drag.",
+    "tags": ["Six Sigma", "Process Automation", "Lean Operations", "Supply Chain"],
+    "hourly_rate": 280.0,
+    "currency": "USD"
+  },
+  {
+    "id": 27,
+    "user_id": 27,
+    "full_name": "Dr. Arthur Pendelton",
+    "public_handle": "arthur_exec",
+    "email": "arthur.pendelton@example.com",
+    "headline": "Executive Leadership Coach & Organizational Psychologist",
+    "category": "Coaching & Leadership",
+    "bio": "Advising Fortune 500 executives on high-stakes leadership, team culture, and corporate scaling.",
+    "tags": ["Executive Coaching", "Leadership Development", "Team Culture", "Org Design"],
+    "hourly_rate": 500.0,
+    "currency": "USD"
+  }
+]
