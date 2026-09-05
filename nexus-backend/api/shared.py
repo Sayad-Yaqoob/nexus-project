@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from pydantic import BaseModel
 
-from api.deps import get_current_user, create_access_token
+from api.deps import get_current_user, require_expert_role, create_access_token
 from services.adapters import (
     DataAdapter, LLMAdapter, VectorAdapter,
     User, ExpertProfile, Offering,
@@ -57,7 +57,7 @@ async def get_user_me(
     profile = await data_adapter.get_expert_profile(str(current_user.id))
     
     role_str = "Expert" if current_user.role == "expert" else "Client"
-    greeting = f"Welcome back, {current_user.full_name}! NEXUS {role_str} workspace ready."
+    greeting = f"Welcome back, {current_user.full_name}! mindGigs {role_str} workspace ready."
 
     return {
         "mode": current_user.role,
@@ -127,11 +127,11 @@ async def list_user_offerings(
 async def update_offering_endpoint(
     offering_id: int,
     req: UpdateOfferingRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_expert_role),
     data_adapter: DataAdapter = Depends(get_data_adapter),
     vector_adapter: VectorAdapter = Depends(get_vector_adapter)
 ):
-    """Update an existing offering in database."""
+    """Update an existing offering in database (expert only)."""
     updated = await data_adapter.update_offering(offering_id, req.model_dump(exclude_none=True))
     if not updated:
         raise HTTPException(status_code=404, detail="Offering not found")
@@ -142,11 +142,11 @@ async def update_offering_endpoint(
 @router.delete("/offerings/{offering_id}")
 async def delete_offering_endpoint(
     offering_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_expert_role),
     data_adapter: DataAdapter = Depends(get_data_adapter),
     vector_adapter: VectorAdapter = Depends(get_vector_adapter)
 ):
-    """Delete an offering from database."""
+    """Delete an offering from database (expert only)."""
     deleted = await data_adapter.delete_offering(offering_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Offering not found")
@@ -190,9 +190,10 @@ async def create_booking_endpoint(
 
 @router.get("/earnings")
 async def get_earnings_endpoint(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_expert_role),
     data_adapter: DataAdapter = Depends(get_data_adapter)
 ):
-    """Fetch earnings summary for expert."""
+    """Fetch earnings summary for expert (expert only)."""
     return await data_adapter.get_earnings(int(current_user.id))
+
 

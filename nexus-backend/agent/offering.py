@@ -13,7 +13,7 @@ class Availability(BaseModel):
 
 
 class OfferingExtraction(BaseModel):
-    offering_type: Optional[str] = None
+    offer_type: Optional[str] = None
     title: Optional[str] = None
     description: Optional[str] = None
     price: Optional[float] = None
@@ -30,6 +30,7 @@ class OfferingDraft(BaseModel):
     duration: Optional[str] = None
     description: Optional[str] = None
     availability: Optional[Availability] = None
+
 
 
 def _duration(text: str) -> Optional[str]:
@@ -137,8 +138,9 @@ def extract_offering_entities(message: str) -> OfferingExtraction:
                 description += "."
 
     return OfferingExtraction(
-        offering_type=offering_type,
+        offer_type=offering_type,
         title=title,
+
         description=description,
         price=_price(message),
         currency="USD" if re.search(r"\$|usd|dollar", lowered) else "USD",

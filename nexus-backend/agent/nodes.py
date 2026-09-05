@@ -54,14 +54,23 @@ async def node_classify_intent(state: NexusState) -> Dict[str, Any]:
     role = state.get("role", "client")
     pending = state.get("pending_action", {})
     pending_act = pending.get("action")
+    msg_lower = message.lower().strip()
 
-    if pending_act == "publish_offering" or (state.get("intent") == NexusIntent.OFFERING_CREATE and state.get("draft")):
+    # Only continue pending task if message is explicit confirmation/cancelation
+    if pending_act == "publish_offering" and any(k in msg_lower for k in ["confirm", "yes", "publish", "do it", "approve", "cancel", "go ahead"]):
         return {"intent": NexusIntent.OFFERING_CREATE}
-    if pending_act == "update_offering" or (state.get("intent") == NexusIntent.OFFERING_EDIT and state.get("draft")):
+    if pending_act == "update_offering" and any(k in msg_lower for k in ["confirm", "yes", "update", "do it", "approve", "cancel"]):
         return {"intent": NexusIntent.OFFERING_EDIT}
 
-    msg_lower = message.lower()
-    
+    # Navigation heuristics
+    if "my offers" in msg_lower or "show offers" in msg_lower or "view offers" in msg_lower:
+        if role == "expert":
+            return {"intent": "navigation", "target_route": "/nexus?tab=my_offers"}
+    if "my bookings" in msg_lower or "show bookings" in msg_lower or "view bookings" in msg_lower:
+        return {"intent": "navigation", "target_route": "/nexus?tab=bookings"}
+    if "find experts" in msg_lower or "search experts" in msg_lower:
+        return {"intent": "navigation", "target_route": "/nexus?tab=match_search"}
+
     # 1. Search / Find Expert intent takes priority if user asks to find/hire/need an expert or if role is client looking for expertise
     if any(k in msg_lower for k in ["find", "search", "match", "hire", "looking for", "need an expert", "expert for", "expert for our", "recommend", "need help with"]):
         return {"intent": NexusIntent.CLIENT_MATCH_SEARCH}
@@ -78,12 +87,13 @@ async def node_classify_intent(state: NexusState) -> Dict[str, Any]:
     if role == "expert" and any(k in msg_lower for k in ["edit offer", "update price", "change price", "change my", "change price of"]):
         return {"intent": NexusIntent.OFFERING_EDIT}
 
-    # 5. Offering creation heuristics (for expert role)
-    if role == "expert" and (
+    # 5. Offering creation heuristics
+    if (
         any(k in msg_lower for k in ["create offer", "add offering", "new service", "create a 1:1", "create session", "sell", "new offer"]) or
         ("session" in msg_lower and any(k in msg_lower for k in ["create", "offer", "offering", "$", "dollar", "price"]))
     ):
         return {"intent": NexusIntent.OFFERING_CREATE}
+
 
     # 6. Profile edit heuristics
     if role == "expert" and any(k in msg_lower for k in ["profile", "bio", "headline", "tag"]):
@@ -110,6 +120,13 @@ Respond ONLY with the exact intent string from the list above."""
 
 
 async def node_offering_create(state: NexusState) -> Dict[str, Any]:
+    if state.get("role") != "expert":
+        return {
+            "response_text": "Creating and managing expert offerings is reserved for Expert accounts. As a Client, you can browse experts, view profiles, and book sessions.",
+            "response_type": "error",
+            "suggested_actions": ["Find Experts", "My Bookings"]
+        }
+
     data_adapter = get_data_adapter()
     vector_adapter = get_vector_adapter()
     message = state.get("message", "")
@@ -118,6 +135,7 @@ async def node_offering_create(state: NexusState) -> Dict[str, Any]:
     draft = merge_draft(previous_draft, extraction)
     pending = state.get("pending_action") or {}
     msg_low = message.lower().strip()
+
     
     is_confirmation = bool(
         (pending.get("action") == "publish_offering" and pending.get("user_id") == state.get("user_id")) and
@@ -338,6 +356,13 @@ async def node_client_search(state: NexusState) -> Dict[str, Any]:
 
 async def node_earnings_inquiry(state: NexusState) -> Dict[str, Any]:
     """Node: Query actual DB earnings for expert."""
+    if state.get("role") != "expert":
+        return {
+            "response_text": "Earnings and payout details are only available for Expert accounts. As a Client account, you can manage your bookings and purchases.",
+            "response_type": "error",
+            "suggested_actions": ["Find Experts", "My Bookings"]
+        }
+
     data_adapter = get_data_adapter()
     user_id = state.get("user_id", 1)
     earnings_data = await data_adapter.get_earnings(user_id)
@@ -348,6 +373,27 @@ async def node_earnings_inquiry(state: NexusState) -> Dict[str, Any]:
         "response_data": earnings_data,
         "suggested_actions": ["Request Payout", "View Bookings", "Create Offering"]
     }
+
+async def node_navigation(state: NexusState) -> Dict[str, Any]:
+    """Node: Return structured navigation action for frontend router."""
+    target = state.get("target_route") or "/nexus"
+    if "my_offers" in target:
+        label = "My Offers"
+        tab = "my_offers"
+    elif "bookings" in target:
+        label = "Bookings"
+        tab = "bookings"
+    else:
+        label = "Match Search"
+        tab = "match_search"
+
+    return {
+        "response_text": f"Navigating you to {label}...",
+        "response_type": "navigation",
+        "response_data": {"route": target, "tab": tab},
+        "suggested_actions": ["Agent Canvas", "My Offers", "Bookings"]
+    }
+
 
 async def node_bookings_inquiry(state: NexusState) -> Dict[str, Any]:
     """Node: Query bookings for user."""

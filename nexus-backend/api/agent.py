@@ -11,6 +11,8 @@ router = APIRouter()
 class AgentChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
+    current_route: Optional[str] = None
+    current_perspective: Optional[str] = None
 
 class AgentChatResponse(BaseModel):
     response: str
@@ -49,8 +51,11 @@ async def agent_chat(
     result = await AgentService.process_message(
         user_id=user_id,
         message=req.message.strip(),
-        session_id=req.session_id
+        session_id=req.session_id,
+        current_route=req.current_route,
+        current_perspective=req.current_perspective
     )
+
 
     return AgentChatResponse(**result)
 

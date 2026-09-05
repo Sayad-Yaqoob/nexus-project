@@ -14,7 +14,9 @@ class AgentService:
     async def process_message(
         user_id: int,
         message: str,
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
+        current_route: Optional[str] = None,
+        current_perspective: Optional[str] = None
     ) -> Dict[str, Any]:
         data_adapter = get_data_adapter()
         
@@ -35,18 +37,30 @@ class AgentService:
         user = await data_adapter.get_user_by_id(user_id)
         role = user.role if user else "client"
 
+        # Check if user message is an explicit continuation of a pending task
+        pending_act = saved_state.get("pending_action", {}).get("action")
+        msg_low = message.lower().strip()
+        is_continuing = bool(
+            pending_act and any(k in msg_low for k in ["confirm", "yes", "publish", "do it", "approve", "cancel", "go ahead", "do that"])
+        )
+
         initial_state = {
             "session_id": session_id,
             "user_id": user_id,
             "role": role,
             "message": message,
-            "conversation_history": existing_history
-            , **{
+            "conversation_history": existing_history,
+            "current_route": current_route,
+            "current_perspective": current_perspective or role
+        }
+
+        if is_continuing:
+            initial_state.update({
                 key: saved_state[key]
                 for key in ("intent", "extracted_entities", "draft", "pending_action", "requires_confirmation", "confirmation_action")
                 if key in saved_state
-            }
-        }
+            })
+
 
         # 4. Invoke graph execution
         final_state = await nexus_graph.ainvoke(initial_state)

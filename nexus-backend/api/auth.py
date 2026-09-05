@@ -39,8 +39,10 @@ async def mimic_login(
         elif target_role:
             query = query.filter_by(role=target_role)
 
+        query = query.order_by(DBUser.id.asc())
         result = await session.execute(query)
         candidates = result.scalars().all()
+
 
         if not candidates:
             raise HTTPException(
@@ -48,7 +50,8 @@ async def mimic_login(
                 detail=f"No seeded users found matching criteria (role={target_role}, user_id={target_uid})"
             )
 
-        chosen_user = random.choice(candidates)
+        chosen_user = candidates[0] if target_role or target_uid else random.choice(candidates)
+
 
         token_data = {
             "sub": str(chosen_user.id),

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AuthGuard } from '@/components/layout/AuthGuard';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { useAuth } from '@/components/layout/AuthContext';
@@ -18,6 +19,7 @@ import {
 
 function NexusWorkspaceContent() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<'canvas' | 'offers' | 'bookings' | 'studio' | 'search'>('canvas');
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const [messages, setMessages] = useState<AgentMessage[]>([]);
@@ -68,6 +70,13 @@ function NexusWorkspaceContent() {
     }
   }, [user, perspective]);
 
+  useEffect(() => {
+    const tabParam = searchParams ? searchParams.get('tab') : null;
+    if (tabParam === 'my_offers') setActiveTab('offers');
+    else if (tabParam === 'bookings') setActiveTab('bookings');
+    else if (tabParam === 'match_search') setActiveTab('search');
+  }, [searchParams]);
+
   const handleSendMessage = async (textToSend?: string) => {
     const messageText = textToSend || inputMessage;
     if (!messageText.trim() || loading) return;
@@ -103,6 +112,14 @@ function NexusWorkspaceContent() {
       };
 
       setMessages(prev => [...prev, agentMsg]);
+
+      // Automatically switch active workspace tab if agent returned a navigation response
+      if (resp.response_type === 'navigation' && resp.response_data?.tab) {
+        const tabKey = String(resp.response_data.tab);
+        if (tabKey === 'my_offers' || tabKey === 'offers') setActiveTab('offers');
+        else if (tabKey === 'bookings') setActiveTab('bookings');
+        else if (tabKey === 'match_search' || tabKey === 'search') setActiveTab('search');
+      }
     } catch (err: any) {
       console.error('Agent chat error:', err);
       setError(err.message || 'Error communicating with NEXUS agent');
@@ -110,6 +127,7 @@ function NexusWorkspaceContent() {
       setLoading(false);
     }
   };
+
 
   const handleBookOffering = async (expertUserId: number | string, offeringId?: number | string) => {
     setLoading(true);

@@ -116,3 +116,86 @@ def test_golden_path_b_client_semantic_search_and_booking():
     earn_data = earnings_resp.json()
     assert earn_data["total_sales_count"] >= 1
     assert earn_data["expert_net_earnings"] > 0
+
+def test_client_authorization_restrictions():
+    # 1. Login as client
+    auth_resp = client.post("/api/v1/auth/mimic", json={"role": "client"})
+    assert auth_resp.status_code == 200
+    token = auth_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Earnings endpoint must return 403 Forbidden for clients
+    earn_resp = client.get("/api/v1/earnings", headers=headers)
+    assert earn_resp.status_code == 403
+
+    # 3. Update offering endpoint must return 403 Forbidden for clients
+    put_resp = client.put("/api/v1/offerings/1", headers=headers, json={"price": 999.0})
+    assert put_resp.status_code == 403
+
+    # 4. Agent creation action must return polite error response for clients
+    chat_resp = client.post("/api/v1/agent/chat", headers=headers, json={"message": "Create a 1:1 session for $500"})
+    assert chat_resp.status_code == 200
+    data = chat_resp.json()
+    assert data["response_type"] == "error"
+    assert "reserved for Expert accounts" in data["response"]
+
+def test_expert_retains_client_capabilities():
+    # 1. Login as expert
+    auth_resp = client.post("/api/v1/auth/mimic", json={"role": "expert"})
+    assert auth_resp.status_code == 200
+    token = auth_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Expert performs client search
+    search_resp = client.post("/api/v1/agent/chat", headers=headers, json={"message": "Find an AI expert for RAG optimization"})
+    assert search_resp.status_code == 200
+    data = search_resp.json()
+    assert data["response_type"] == "search_results"
+    assert len(data["response_data"]["matches"]) > 0
+
+    # 3. Expert books another expert
+    target = data["response_data"]["matches"][0]
+    book_resp = client.post(
+        "/api/v1/bookings",
+        headers=headers,
+        json={"expert_user_id": target["user_id"], "notes": "Expert-to-expert consultation"}
+    )
+    assert book_resp.status_code == 200
+    assert book_resp.json()["booking"]["status"] == "confirmed"
+
+def test_state_contamination_regression():
+    # 1. Login as expert
+    auth_resp = client.post("/api/v1/auth/mimic", json={"role": "expert"})
+    assert auth_resp.status_code == 200
+    token = auth_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Step 1: Create 1:1 session for $500
+    r1 = client.post("/api/v1/agent/chat", headers=headers, json={"message": "Create a 1:1 session for $500"})
+    assert r1.status_code == 200
+    d1 = r1.json()
+    assert d1["response_type"] == "action_preview"
+    assert d1["draft"]["price"] == 500.0
+    sess_id = d1["session_id"]
+
+    # Step 2: Confirm action
+    r2 = client.post("/api/v1/agent/chat", headers=headers, json={"message": "confirm", "session_id": sess_id})
+    assert r2.status_code == 200
+    assert r2.json()["response_type"] == "action_success"
+
+    # Step 3: Ask to publish a book for $300 (must NOT reuse old 1:1 session draft)
+    r3 = client.post("/api/v1/agent/chat", headers=headers, json={"message": "I need to publish my book for $300", "session_id": sess_id})
+    assert r3.status_code == 200
+    d3 = r3.json()
+    assert d3["response_type"] == "action_preview"
+    assert d3["draft"]["offer_type"] == "Book"
+    assert d3["draft"]["price"] == 300.0
+
+    # Step 4: Ask to find an expert who can market/launch the book (must NOT return old creation draft)
+    r4 = client.post("/api/v1/agent/chat", headers=headers, json={"message": "I need an expert who can help me market and launch my new book", "session_id": sess_id})
+    assert r4.status_code == 200
+    d4 = r4.json()
+    assert d4["response_type"] == "search_results"
+    assert "matches" in d4["response_data"]
+    assert len(d4["response_data"]["matches"]) > 0
+

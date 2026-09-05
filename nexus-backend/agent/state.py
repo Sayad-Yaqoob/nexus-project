@@ -21,4 +21,7 @@ class NexusState(TypedDict, total=False):
     action_result: Dict[str, Any]
     pending_action: Dict[str, Any]
     response_data: Optional[Dict[str, Any]]
+    current_route: Optional[str]
+    current_perspective: Optional[str]
+
 

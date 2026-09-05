@@ -287,7 +287,14 @@ export function ResponseRenderer({ message, onConfirm, onCancel, onViewProfile, 
   if (type === 'search_results') return <SearchResults data={message.response_data} onViewProfile={onViewProfile} onBookSession={onBookSession} />;
   if (type === 'booking') return <BookingCard data={message.response_data} />;
   if (type === 'earnings') return <EarningsCard data={message.response_data} />;
+  if (type === 'navigation') return (
+    <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3.5 text-xs text-blue-900 flex items-center justify-between font-medium">
+      <span>Navigated to: <strong className="capitalize font-bold">{String(message.response_data?.tab || 'Workspace')}</strong></span>
+      <span className="px-2 py-0.5 rounded bg-blue-200 text-blue-800 text-[10px] font-bold uppercase">Active Tab</span>
+    </div>
+  );
   if (type === 'action_success') return <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">{message.content}</div>;
   if (type === 'error') return <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{message.content}</div>;
   return null;
 }
+
