@@ -16,3 +16,7 @@ class NexusState(TypedDict, total=False):
     suggested_actions: List[str]
     requires_confirmation: bool
     confirmation_action: Optional[str]
+    response_type: str
+    draft: Dict[str, Any]
+    action_result: Dict[str, Any]
+    pending_action: Dict[str, Any]

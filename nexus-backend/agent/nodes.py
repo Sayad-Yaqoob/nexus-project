@@ -4,6 +4,7 @@ from typing import Dict, Any, List
 from agent.state import NexusState
 from agent.intents import NexusIntent, INTENT_DESCRIPTIONS, SUGGESTED_ACTIONS_BY_INTENT
 from services.adapters import get_data_adapter, get_llm_adapter, get_vector_adapter
+from agent.offering import execute_offering, extract_offering_entities, merge_draft, OfferingDraft
 
 async def node_load_context(state: NexusState) -> Dict[str, Any]:
     """Node: Load user context (profile, role, offerings) from database."""
@@ -51,6 +52,10 @@ async def node_classify_intent(state: NexusState) -> Dict[str, Any]:
     llm = get_llm_adapter()
     message = state.get("message", "")
     role = state.get("role", "client")
+    if state.get("pending_action", {}).get("action") == "publish_offering" or (
+        state.get("intent") == NexusIntent.OFFERING_CREATE and state.get("draft")
+    ):
+        return {"intent": NexusIntent.OFFERING_CREATE}
     
     # Simple rule-based heuristics to ensure high classification speed & accuracy
     msg_lower = message.lower()
@@ -58,7 +63,10 @@ async def node_classify_intent(state: NexusState) -> Dict[str, Any]:
         intent = NexusIntent.EARNINGS_INQUIRY
     elif any(k in msg_lower for k in ["booking", "schedule", "calendar", "appointment"]):
         intent = NexusIntent.BOOKINGS_INQUIRY if role == "expert" else NexusIntent.BOOKING_REQUEST
-    elif any(k in msg_lower for k in ["create offer", "add offering", "new service", "new product", "add course"]):
+    elif (
+        any(k in msg_lower for k in ["create offer", "add offering", "new service", "new product", "add course", "launch", "sell"])
+        and any(k in msg_lower for k in ["offer", "offering", "session", "service", "product", "call", "consult"])
+    ) or any(k in msg_lower for k in ["1:1 session", "one-on-one", "one to one"]):
         intent = NexusIntent.OFFERING_CREATE
     elif any(k in msg_lower for k in ["edit offer", "update price", "change price"]):
         intent = NexusIntent.OFFERING_EDIT
@@ -85,6 +93,77 @@ Respond ONLY with the exact intent string from the list above."""
             intent = NexusIntent.GENERAL_CHAT
 
     return {"intent": intent}
+
+
+async def node_offering_create(state: NexusState) -> Dict[str, Any]:
+    data_adapter = get_data_adapter()
+    message = state.get("message", "")
+    previous_draft = state.get("draft") or state.get("extracted_entities")
+    extraction = extract_offering_entities(message)
+    draft = merge_draft(previous_draft, extraction)
+    pending = state.get("pending_action") or {}
+    is_confirmation = bool(pending.get("action") == "publish_offering" and pending.get("user_id") == state.get("user_id") and message.lower().strip() in {
+        "publish", "publish it", "yes", "confirm", "approve", "go ahead"
+    })
+
+    if is_confirmation:
+        try:
+            result = await execute_offering(data_adapter, state["user_id"], draft)
+            return {
+                "response_text": f"Your {draft.offer_type} has been published successfully.",
+                "response_type": "action_result",
+                "action_result": result,
+                "draft": draft.model_dump(),
+                "pending_action": {},
+                "requires_confirmation": False,
+                "confirmation_action": None,
+            }
+        except (PermissionError, ValueError) as exc:
+            return {
+                "response_text": f"I couldn't publish the offering: {exc}",
+                "response_type": "error",
+                "action_result": {"success": False, "error": str(exc)},
+                "draft": draft.model_dump(),
+                "pending_action": pending,
+                "requires_confirmation": True,
+                "confirmation_action": "publish_offering",
+            }
+        except Exception as exc:
+            return {
+                "response_text": f"I couldn't publish the offering because the data operation failed: {exc}",
+                "response_type": "error",
+                "action_result": {"success": False, "error": str(exc)},
+                "draft": draft.model_dump(),
+                "pending_action": pending,
+                "requires_confirmation": True,
+                "confirmation_action": "publish_offering",
+            }
+
+    missing = []
+    if not draft.title:
+        missing.append("title")
+    if draft.price is None:
+        missing.append("price")
+    if missing:
+        labels = " and ".join(missing)
+        return {
+            "response_text": f"I have the details you provided. I still need the {labels} before I can prepare the offering.",
+            "response_type": "clarification",
+            "draft": draft.model_dump(),
+            "extracted_entities": extraction.model_dump(exclude_none=True),
+            "pending_action": {},
+            "requires_confirmation": False,
+        }
+
+    return {
+        "response_text": "Your offering draft is ready. Would you like me to publish it?",
+        "response_type": "confirmation_request",
+        "draft": draft.model_dump(),
+        "extracted_entities": extraction.model_dump(exclude_none=True),
+        "pending_action": {"action": "publish_offering", "user_id": state["user_id"]},
+        "requires_confirmation": True,
+        "confirmation_action": "publish_offering",
+    }
 
 async def node_respond(state: NexusState) -> Dict[str, Any]:
     """Node: Generate role-aware, highly contextual response."""
@@ -161,7 +240,13 @@ async def node_persist_session(state: NexusState) -> Dict[str, Any]:
         state_to_save = {
             "intent": state.get("intent"),
             "role": state.get("role"),
-            "suggested_actions": state.get("suggested_actions", [])
+            "suggested_actions": state.get("suggested_actions", []),
+            "response_type": state.get("response_type", "message"),
+            "extracted_entities": state.get("extracted_entities", {}),
+            "draft": state.get("draft", {}),
+            "pending_action": state.get("pending_action", {}),
+            "requires_confirmation": state.get("requires_confirmation", False),
+            "confirmation_action": state.get("confirmation_action"),
         }
         await data_adapter.save_session(session_id, user_id, history, state_to_save)
 

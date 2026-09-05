@@ -14,6 +14,9 @@ export interface AgentMessage {
   timestamp: string;
   intent?: string;
   suggested_actions?: string[];
+  draft?: OfferingDraft;
+  response_type?: string;
+  requires_confirmation?: boolean;
 }
 
 export interface AgentChatResponse {
@@ -23,6 +26,11 @@ export interface AgentChatResponse {
   role: string;
   suggested_actions: string[];
   conversation_history: { role: string; content: string }[];
+  response_type: string;
+  draft?: OfferingDraft;
+  action_result?: Record<string, unknown>;
+  requires_confirmation: boolean;
+  confirmation?: { action?: string };
 }
 
 export interface TokenResponse {
@@ -32,8 +40,8 @@ export interface TokenResponse {
 }
 
 export interface OfferingDraft {
-  id?: number;
-  title: string;
+  id?: number | string;
+  title?: string;
   offer_type: '1:1 Session' | 'Subscription' | 'Digital Product' | 'Custom Offer' | 'Book' | 'Highlight';
   price: number;
   duration?: string;
@@ -41,6 +49,12 @@ export interface OfferingDraft {
   file_required?: boolean;
   file_path?: string;
   file_placeholder_valid?: boolean;
+  currency?: string;
+  availability?: {
+    days: string[];
+    start?: string;
+    end?: string;
+  };
 }
 
 export interface PreviewCard {
