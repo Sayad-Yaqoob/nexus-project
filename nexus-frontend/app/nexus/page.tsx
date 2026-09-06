@@ -53,8 +53,8 @@ function NexusWorkspaceContent() {
     if (user && messages.length === 0) {
       const isExpert = perspective === 'expert';
       const welcomeText = isExpert
-        ? `Hello **${user.full_name}**! I am **NEXUS**, your autonomous AI growth & sales advisor. How can I help optimize your expert profile, build high-converting offerings (1:1 sessions, products, subscriptions), or check your earnings today?`
-        : `Welcome **${user.full_name}**! I am **NEXUS**, your marketplace advisor. Tell me what technical expertise, strategy consultation, or service you are looking for, and I will recommend top verified experts.`;
+        ? `Hello ${user.full_name}! I am NEXUS, your autonomous AI growth & sales advisor. How can I help optimize your expert profile, build high-converting offerings (1:1 sessions, digital products, subscriptions), or check your earnings today?`
+        : `Welcome ${user.full_name}! I am NEXUS, your marketplace advisor. Tell me what technical expertise, strategy consultation, or service you are looking for, and I will recommend top verified experts.`;
 
       setMessages([
         {
@@ -72,9 +72,15 @@ function NexusWorkspaceContent() {
 
   useEffect(() => {
     const tabParam = searchParams ? searchParams.get('tab') : null;
+    const queryParam = searchParams ? searchParams.get('query') : null;
+    
     if (tabParam === 'my_offers') setActiveTab('offers');
     else if (tabParam === 'bookings') setActiveTab('bookings');
     else if (tabParam === 'match_search') setActiveTab('search');
+
+    if (queryParam) {
+      handleSendMessage(`Find experts for ${queryParam}`);
+    }
   }, [searchParams]);
 
   const handleSendMessage = async (textToSend?: string) => {
@@ -236,29 +242,6 @@ function NexusWorkspaceContent() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Perspective Toggle for Expert Users */}
-            {user?.role === 'expert' && (
-              <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
-                <span className="text-[10px] font-bold text-slate-500 uppercase px-2">Perspective:</span>
-                <button
-                  onClick={() => setPerspective('expert')}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all ${
-                    perspective === 'expert' ? 'bg-[#112233] text-[#00C49F] shadow-2xs' : 'text-slate-600'
-                  }`}
-                >
-                  Expert
-                </button>
-                <button
-                  onClick={() => setPerspective('client')}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all ${
-                    perspective === 'client' ? 'bg-[#112233] text-[#00C49F] shadow-2xs' : 'text-slate-600'
-                  }`}
-                >
-                  Client
-                </button>
-              </div>
-            )}
-
             {user && (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs">
                 <span className="font-medium text-slate-700">{user.full_name}</span>

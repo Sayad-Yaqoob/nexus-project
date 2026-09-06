@@ -1,142 +1,290 @@
 # mindGigs — Powered by NEXUS
 
-> **The Intelligent Marketplace for On-Demand Expertise & Agentic Operations.**  
-> Second-Generation Agentic Marketplace Engine built for **mindGigs**.
+> **An Agentic Marketplace Engine that saves experts' precious time while instantly connecting clients to the right practitioner.**
 
 ---
 
-## 🎯 1. Product Identity & Vision
+## The Problem We're Solving
 
-**mindGigs** is a dual-sided expertise marketplace where specialists sell advisory services, courses, subscriptions, and digital products, while clients discover solutions for technical and strategic challenges.
+**Expert time is the scarcest resource in the knowledge economy.**
 
-**NEXUS** is the agentic operating layer embedded inside mindGigs. Rather than acting as a generic chatbot, NEXUS operates over real application context:
-- **Natural language for intent.**
-- **Structured UI for precision.**
-- **Real application state for truth.**
+Today, a top consultant wastes 30–40% of their billable hours on the wrong conversations: unqualified leads, repeated onboarding questions, and manual back-and-forth to determine whether they're even the right fit for a client's problem. Meanwhile, clients spend days browsing generic directories, emailing strangers, and hoping the profile photo and a wall of text translates into real expertise.
 
-```text
-                    mindGigs
-                       │
-             ┌─────────┴─────────┐
-             │                   │
-        Marketplace          NEXUS
-             │                   │
-     Clients + Experts     Intelligent Agentic OS
-             │                   │
-             └─────────┬─────────┘
-                       │
-              Real SQLite Backend
+**mindGigs changes this on both sides of the marketplace.**
+
+- **For Experts**: NEXUS operates as an intelligent assistant embedded in their workspace. It understands natural language requests to create offerings, manage bookings, and update profiles — eliminating the need to navigate complex dashboards. Experts spend time delivering value, not managing tools.
+
+- **For Clients**: NEXUS performs semantic vector search against verified expert profiles. Instead of keyword matching, it understands the actual problem the client is trying to solve, ranks experts by relevance, and explains *why* each expert is the right fit — in one sentence.
+
+---
+
+## What Is NEXUS?
+
+**NEXUS** is the agentic operating layer embedded inside mindGigs. It is not a chatbot bolted on top of a form. It is the primary interface for platform operations — a state-aware agent that:
+
+1. **Understands intent** — Classifies free-form text into precise operational actions (create offering, search experts, view earnings, navigate to screen, etc.)
+2. **Executes against real data** — Every action results in a verified SQLite database write, not a simulated response
+3. **Enforces authorization** — Role-based permissions are enforced on the backend; a client account physically cannot invoke expert-only operations
+4. **Maintains conversation context** — Session state is persisted across turns, enabling multi-turn confirmation flows
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                        mindGigs                         │
+│  ┌────────────────┐          ┌────────────────────────┐ │
+│  │   Client Side  │          │     Expert Side        │ │
+│  │                │          │                        │ │
+│  │  "Find me an   │  NEXUS   │  "Create a 1:1 session │ │
+│  │  AI expert for │◄────────►│  for $300 on LLM       │ │
+│  │  RAG systems"  │  Agent   │  architecture"         │ │
+│  │                │  Layer   │                        │ │
+│  │  → Semantic    │          │  → Intent classified   │ │
+│  │    vector      │          │  → Draft shown for     │ │
+│  │    search      │          │    confirmation        │ │
+│  │  → Ranked      │          │  → DB write verified   │ │
+│  │    matches     │          │  → FAISS re-indexed    │ │
+│  │  → LLM why     │          │                        │ │
+│  └────────────────┘          └────────────────────────┘ │
+│                                                         │
+│            SQLite Database ← FAISS Vector Index         │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🏗️ 2. Core Architecture & Agentic OS
+## Architecture
 
-NEXUS operates as an explicit Agentic Operating System built around:
+### Backend — `nexus-backend/`
 
-1. **`AgentContext`**: A structured context object passed on every request tracking authenticated user identity, account capabilities, current perspective (Client vs Expert), current route/screen, and selected entity.
-2. **`CapabilityRegistry`**: 22 registered application operations (`create_1_to_1`, `create_subscription`, `create_book`, `create_digital_product`, `create_custom_offering`, `create_highlight`, `update_offering`, `delete_offering`, `search_experts`, `create_booking`, `get_my_bookings`, `get_incoming_bookings`, `get_earnings`, `navigate_to_screen`, `update_availability`, etc.).
-3. **`TaskStateMachine`**: Explicit task lifecycle (`IDLE` -> `UNDERSTANDING` -> `COLLECTING_INFO` -> `PREVIEW_SHOWN` -> `AWAITING_CONFIRMATION` -> `EXECUTING` -> `VERIFYING` -> `COMPLETED`). Ensures completed tasks reset active task state so future prompts start fresh without stale contamination.
-4. **Backend Authorization Matrix**: Permissions are enforced on the backend (`deps.py` & `nodes.py`). Client accounts cannot create/edit offerings or access expert earnings, receiving polite permission responses.
-5. **Verified Writes**: Persistent operations execute real SQLite database operations (`nexus.db`), read back the record, and verify state before returning `action_success`.
-
----
-
-## 📦 3. Features & Offering Workflows
-
-| Offering Type | Mapped Capabilities & Fields | Verification & Delivery |
+| Component | Technology | Role |
 | :--- | :--- | :--- |
-| **1:1 Session** | Title, description, price, duration, weekly schedule, timezone | Real DB write + calendar slot availability |
-| **Subscription** | Plan title, monthly price, description, included benefits (list), active toggle | Real DB write + subscription manager refresh |
-| **Book** | Cover images, title, author, tagline, price, overview, Buy Now (PDF <= 80MB), Amazon Link, Custom Link | Real DB write + file upload validation |
-| **Digital Product** | Title, price, description, file upload (PDF/ZIP/XLSX/PPTX <= 50MB) or external link | Real DB write + file attachment rule |
-| **Custom Offering** | Title, price, description, CTA options | Real DB write + custom service quote |
-| **Highlight** | Title, image URL, link URL, listed status | Real DB write + profile highlight card |
+| **API Layer** | FastAPI + Pydantic v2 | REST endpoints, auth, authorization |
+| **Agent Graph** | LangGraph | Stateful multi-node execution DAG |
+| **Intent Classifier** | Groq LLM (fast model) | Free-text → enum intent with role/screen context |
+| **Entity Extractor** | Regex + domain heuristics | Price, duration, offer type, topic extraction |
+| **Vector Search** | FAISS-CPU + `all-MiniLM-L6-v2` | Semantic expert-client matching |
+| **LLM Reasoning** | Groq LLM (reasoning model) | Per-match "why this expert" explanation |
+| **Persistence** | SQLite via SQLAlchemy async | Users, experts, offerings, bookings, sessions |
+
+**Agent Graph nodes** (executed in order per request):
+1. `node_load_context` — Load user profile, role, and offerings from DB
+2. `node_classify_intent` — Deterministic rule + LLM fallback classification
+3. Route to specialized node: `node_offering_create`, `node_client_search`, `node_bookings_inquiry`, `node_earnings_inquiry`, `node_navigation`, or `node_respond`
+4. `node_persist_session` — Persist conversation history and state for next turn
+
+### Frontend — `nexus-frontend/`
+
+| Component | Technology |
+| :--- | :--- |
+| **Framework** | Next.js 16 (App Router) |
+| **Language** | TypeScript + React 19 |
+| **Styling** | Tailwind CSS |
+| **State** | React hooks + context |
+
+**Key flows:**
+- `/login` — Persona selection (Client vs Expert) with explicit authentication
+- `/nexus` — Main chat interface; perspective-aware (sidebar toggle)
+- `/experts` — Marketplace browse with live backend data + fallback
+- `/my-bookings`, `/sell/offers`, `/account/general` — Role-gated screens
 
 ---
 
-## 🔌 4. Tech Stack
+## Tech Stack
 
-- **Backend**: Python 3.10+, FastAPI, Pydantic v2, SQLAlchemy, SQLite (`aiosqlite`), LangGraph, Groq LLM API, FAISS CPU vector index, `sentence-transformers` (`all-MiniLM-L6-v2`).
-- **Frontend**: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, Lucide Icons.
+```
+Backend:  Python 3.10+, FastAPI, LangGraph, Groq API, FAISS-CPU,
+          sentence-transformers, SQLAlchemy, aiosqlite, Pydantic v2
+
+Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS, Lucide Icons
+
+Database: SQLite (portable, zero-config, file-based: nexus.db)
+LLM:      Groq API (free tier sufficient — 2 models: fast + reasoning)
+Vectors:  FAISS in-memory with sentence-transformers (all-MiniLM-L6-v2)
+```
 
 ---
 
-## 🚀 5. Local Quickstart
+## Quickstart
 
 ### Prerequisites
 - Python 3.10+
 - Node.js 18+ & npm
-- Groq API Key (Free at [console.groq.com](https://console.groq.com))
+- Groq API Key → Free at [console.groq.com](https://console.groq.com)
 
-### 1. Configure Environment
+### 1. Configure Environment Variables
+
 ```bash
+# At repo root, copy and fill in the .env:
 cp .env.example .env
 ```
-Set your `GROQ_API_KEY` in `.env`:
+
+Edit `.env` and set:
 ```env
 GROQ_API_KEY=gsk_your_groq_api_key_here
 ```
 
-### 2. Run FastAPI Backend
+> The `.env` file at repo root is read by the backend. The frontend uses `NEXT_PUBLIC_API_URL` (set to `http://localhost:8000` by default in `nexus-frontend/.env.example`).
+
+### 2. Start the Backend
+
 ```bash
 cd nexus-backend
+
+# Create and activate virtual environment
 python -m venv venv
-# On Windows PowerShell:
-venv\Scripts\activate
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # macOS/Linux
 
 pip install -r requirements.txt
+
 python main.py
 ```
-Backend API starts at `http://localhost:8000` (API Docs at `http://localhost:8000/docs`).
 
-### 3. Run Next.js Frontend
+Backend starts at **http://localhost:8000**  
+Interactive API docs: **http://localhost:8000/docs**
+
+> On first start, `main.py` automatically runs database migrations, seeds 30 diverse expert profiles across 6 domains, and builds the FAISS vector index.
+
+### 3. Start the Frontend
+
 ```bash
 cd nexus-frontend
 npm install
 npm run dev
 ```
-Frontend App starts at `http://localhost:3000`.
+
+Frontend starts at **http://localhost:3000**
+
+### 4. Try the Platform
+
+1. Open [http://localhost:3000](http://localhost:3000)
+2. Click **Find an Expert** → Login page → Select **Client** persona → Enter
+3. Chat: *"I need an expert to help me launch a SaaS product"*
+4. NEXUS returns semantically ranked expert matches with match scores and reasoning
+5. Log out → Try **Become an Expert** → Login as expert → Create a 1:1 session offering
 
 ---
 
-## 🧪 6. Test Suite & Verification
+## API Reference
 
-### Run Backend Pytest Suite
+| Endpoint | Method | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/auth/mimic` | POST | None | Dev demo: get JWT token for a `client` or `expert` persona |
+| `/api/v1/users/me` | GET | JWT | Fetch authenticated user profile and role |
+| `/api/v1/agent/chat` | POST | JWT | **Main NEXUS agent endpoint** — natural language input → structured response |
+| `/api/v1/experts` | GET | None | List marketplace experts (filterable by category) |
+| `/api/v1/offerings` | GET | JWT | List current user's offerings |
+| `/api/v1/offerings/{id}` | PUT | JWT (Expert) | Update offering — authorization enforced |
+| `/api/v1/offerings/{id}` | DELETE | JWT (Expert) | Delete offering — authorization enforced |
+| `/api/v1/bookings` | GET | JWT | My Bookings (client) or Incoming Bookings (expert) |
+| `/api/v1/bookings` | POST | JWT | Create a booking |
+| `/api/v1/earnings` | GET | JWT (Expert) | Expert earnings summary — authorization enforced |
+| `/api/v1/health` | GET | None | System status: DB, LLM, FAISS index count |
+
+**Agent Chat Request:**
+```json
+{
+  "message": "Create a 1:1 session for $300 on LLM architecture",
+  "session_id": "optional-for-continuation",
+  "agent_context": {
+    "route": "/sell/offers",
+    "screen": "offers_manager",
+    "perspective": "expert"
+  }
+}
+```
+
+**Agent Chat Response:**
+```json
+{
+  "response": "I've prepared your 1:1 Session offering. Review the details below.",
+  "response_type": "action_preview",
+  "draft": { "title": "...", "price": 300.0, "offer_type": "1:1 Session" },
+  "requires_confirmation": true,
+  "session_id": "nexus_sess_abc123"
+}
+```
+
+---
+
+## Test Suite
+
 ```bash
 cd nexus-backend
-venv\Scripts\python -m pytest -o pythonpath=. tests/test_golden_paths.py
+venv\Scripts\python -m pytest tests/ -v
 ```
-*Executes all 6 test suites covering Golden Path A (1:1), B (Subscription), C (Book), D (Client Search), E (Booking), F (Edit), G (Navigation), Authorization Restrictions, and State Contamination Regression.*
 
-### Run Frontend Static Build Check
+**Golden Path tests cover:**
+- Expert offer creation → confirmation → DB verification
+- Client semantic search → booking → earnings
+- State contamination regression (draft isolation across turns)
+- Subscription / Book / Digital Product type resolution
+- Navigation intent handling
+- Authorization enforcement (client blocked from expert operations)
+
+---
+
+## Project Structure
+
+```
+nexus-project/
+├── nexus-backend/
+│   ├── agent/              # LangGraph nodes, state, intent, offering logic
+│   │   ├── graph.py        # Compiled NexusGraph DAG
+│   │   ├── nodes.py        # All agent processing nodes
+│   │   ├── intents.py      # NexusIntent enum + suggested actions
+│   │   ├── offering.py     # Offering entity extraction + execution
+│   │   ├── service.py      # AgentService — session + graph orchestration
+│   │   └── state.py        # NexusState TypedDict
+│   ├── api/                # FastAPI route handlers
+│   │   ├── agent.py        # /agent/chat endpoint
+│   │   ├── auth.py         # /auth/mimic, /auth/me
+│   │   ├── expert.py       # Expert Studio endpoints
+│   │   ├── shared.py       # Offerings, bookings, earnings, experts
+│   │   └── deps.py         # JWT auth dependency
+│   ├── services/
+│   │   └── adapters/       # DataAdapter, LLMAdapter, VectorAdapter + implementations
+│   ├── database/           # SQLAlchemy models + connection + migrations
+│   ├── tests/              # Pytest golden path + regression tests
+│   ├── main.py             # FastAPI app + startup seeding
+│   └── requirements.txt
+├── nexus-frontend/
+│   ├── app/                # Next.js App Router pages
+│   │   ├── login/          # Persona selection + authentication
+│   │   ├── nexus/          # Main NEXUS chat interface
+│   │   ├── experts/        # Expert marketplace browse
+│   │   └── ...             # Bookings, offers, account pages
+│   ├── components/         # Reusable UI components
+│   └── data/               # Fallback expert data (JSON)
+├── docker-compose.yml      # Docker Compose for containerized deployment
+├── .env.example            # Environment variable template
+└── README.md
+```
+
+---
+
+## Deployment
+
+### Docker Compose (Recommended)
+
 ```bash
-cd nexus-frontend
-npm.cmd run build
+cp .env.example .env
+# Set GROQ_API_KEY in .env
+docker-compose up --build
 ```
-*Verifies Next.js production compilation and TypeScript type checking.*
+
+Services:
+- `nexus-backend` → port 8000
+- `nexus-frontend` → port 3000
 
 ---
 
-## 📡 7. Main API Endpoints
+## Security
 
-| Endpoint | Method | Description |
-| :--- | :--- | :--- |
-| `POST /api/v1/auth/mimic` | `POST` | Authenticate dev demo persona (`client` or `expert`) |
-| `GET /api/v1/users/me` | `GET` | Fetch authenticated user profile & capabilities |
-| `POST /api/v1/agent/chat` | `POST` | Unified NEXUS Agent Chat endpoint (with `current_route` & `current_perspective`) |
-| `GET /api/v1/offerings` | `GET` | Fetch expert offerings |
-| `PUT /api/v1/offerings/{id}` | `PUT` | Update offering (Expert authorization enforced) |
-| `DELETE /api/v1/offerings/{id}` | `DELETE` | Delete offering (Expert authorization enforced) |
-| `GET /api/v1/bookings` | `GET` | List bookings (Client My Bookings vs Expert Incoming Bookings) |
-| `POST /api/v1/bookings` | `POST` | Create booking record in SQLite DB |
-| `GET /api/v1/earnings` | `GET` | Fetch expert earnings summary (Expert authorization enforced) |
-| `GET /api/v1/experts` | `GET` | List seeded marketplace experts |
-| `GET /api/v1/health` | `GET` | System health check & FAISS index count |
+- JWT tokens signed with `SECRET_KEY` (set in `.env`)
+- Role-based authorization enforced at API layer (`deps.py`) — not just frontend gating
+- No credentials committed to source control — all secrets in `.env` (gitignored)
+- Groq API key is the only external dependency
 
 ---
 
-## 🔒 8. Security & License
-
-- Built for **mindGigs.com** / Aartec.
-- Zero API keys or credentials committed to source control.
+*Built for [mindGigs](https://mindgigs.com) — where expert time is the product.*

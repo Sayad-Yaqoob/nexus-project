@@ -1,3 +1,4 @@
+import pytest
 import asyncio
 import httpx
 import json
@@ -5,7 +6,16 @@ import json
 BASE_URL = "http://localhost:8000"
 API_V1 = f"{BASE_URL}/api/v1"
 
+@pytest.mark.asyncio
 async def test_e2e_acceptance():
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            r = await client.get(f"{BASE_URL}/")
+            if r.status_code != 200:
+                pytest.skip("Backend server not running on port 8000")
+    except Exception:
+        pytest.skip("Backend server not running on port 8000")
+
     async with httpx.AsyncClient(timeout=30.0) as client:
         print("=== 1. Testing Health & Root ===")
         r = await client.get(f"{BASE_URL}/")

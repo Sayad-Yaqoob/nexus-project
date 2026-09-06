@@ -119,18 +119,20 @@ def extract_offering_entities(message: str, current_screen: Optional[str] = None
     title = title_match.group(1).strip() if title_match else None
     
     if not title:
-        topic_match = re.search(r"(?:offering|session about|consulting for|advisory on|book about|subscription for)\s+([a-zA-Z0-9\s&]+?)(?:\.|\$|total|for|\d+|$)", message, re.I)
+        topic_match = re.search(r"(?:offering|session about|consulting for|advisory on|book about|subscription for|where i will|where i|help)\s+([a-zA-Z0-9\s&]+?)(?:\.|\$|total|for|\d+|$)", message, re.I)
         if topic_match:
             raw_topic = topic_match.group(1).strip()
-            raw_topic = re.sub(r"\b(and other related things|and related things|and so on|total time|total|time)\b", "", raw_topic, flags=re.I).strip()
-            if raw_topic and len(raw_topic) > 2:
-                title = " ".join([w.capitalize() for w in raw_topic.split()])
+            raw_topic = re.sub(r"\b(and other related things|and related things|and so on|total time|total|time|companies|better)\b", "", raw_topic, flags=re.I).strip()
+            if raw_topic and len(raw_topic) > 3:
+                title = " ".join([w.capitalize() for w in raw_topic.split() if w.lower() not in ["where", "i", "will"]])
 
     if not title or len(title) < 3 or title.lower() in ["for", "a", "an", "the", "session", "book", "subscription"]:
-        if "marketing" in lowered:
-            title = f"Marketing {offering_type}"
+        if "finance" in lowered or "cash flow" in lowered or "money" in lowered or "cfo" in lowered:
+            title = "Financial & Cash Flow Management Advisory"
+        elif "marketing" in lowered or "growth" in lowered or "ads" in lowered:
+            title = f"Marketing & Growth {offering_type}"
         elif "ai" in lowered or "rag" in lowered or "llm" in lowered:
-            title = f"AI Advisory {offering_type}"
+            title = f"AI Architecture & LLM {offering_type}"
         elif offering_type == "Book":
             title = "My New Book"
         elif offering_type == "Subscription":
@@ -138,9 +140,11 @@ def extract_offering_entities(message: str, current_screen: Optional[str] = None
         elif offering_type == "Digital Product":
             title = "Specialist Digital Playbook"
         else:
-            title = f"1:1 {offering_type}"
+            title = f"1:1 Advisory Session" if "1:1" in offering_type else f"{offering_type} Offering"
 
-    description = f"{title} — premium {offering_type.lower()} on MindGigs."
+    description = f"{title} — 1:1 session offering on MindGigs." if offering_type == "1:1 Session" else f"{title} — premium {offering_type.lower()} on MindGigs."
+    if "help companies" in lowered or "cash flow" in lowered or "finances" in lowered:
+        description = "1:1 consultation session helping companies manage finances, optimize unit economics, and better handle cash flow."
     
     file_required = offering_type in ["Book", "Digital Product"]
     
@@ -148,10 +152,13 @@ def extract_offering_entities(message: str, current_screen: Optional[str] = None
     if "yearly" in lowered or "annual" in lowered:
         billing_period = "yearly"
 
+    # Pre-fill reasonable default price if not specified in text
+    final_price = price if price is not None else 250.0
+
     return OfferingDraft(
         title=title,
         offer_type=offering_type,
-        price=price,
+        price=final_price,
         duration=duration or ("N/A" if file_required else "60 min"),
         description=description,
         billing_period=billing_period if offering_type == "Subscription" else None,

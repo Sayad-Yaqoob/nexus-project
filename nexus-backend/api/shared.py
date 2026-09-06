@@ -32,7 +32,7 @@ async def verify_auth_token(
         user = User(
             id=uid,
             email=req.email or f"user_{uid}@mindgigs.com",
-            full_name=req.full_name or "Sayad Yaqoob",
+            full_name=req.full_name or "Nabeel Alam",
             role=req.role or "expert",
             public_handle=req.email.split("@")[0] if req.email else f"user_{uid}"
         )
