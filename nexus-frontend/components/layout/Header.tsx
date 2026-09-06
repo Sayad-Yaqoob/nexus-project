@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from './AuthContext';
 import { NexusDrawer } from './NexusDrawer';
-import { Sparkles, Search, User as UserIcon, Bell, ChevronDown } from 'lucide-react';
+import { Sparkles, Search, ChevronRight } from 'lucide-react';
 
 const ROUTE_TITLES: Record<string, string> = {
   '/overview': 'Overview',
@@ -33,21 +34,31 @@ const ROUTE_TITLES: Record<string, string> = {
 
 export const Header: React.FC = () => {
   const pathname = usePathname();
-  const { user, perspective, setPerspective } = useAuth();
+  const { user } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const title = ROUTE_TITLES[pathname] || 'mindGigs';
-  const isExpertAccount = user?.role === 'expert' || user?.capabilities?.includes('expert');
+  const isOnNexus = pathname === '/nexus';
 
   return (
     <>
       <header className="h-16 bg-[#0B1320] border-b border-[#1E293B] px-6 flex items-center justify-between sticky top-0 z-20 select-none text-slate-200 shrink-0">
-        {/* Left Title */}
+        {/* Left Title + Breadcrumb */}
         <div className="flex items-center gap-3">
-          <h1 className="font-bold text-white text-lg tracking-tight">{title}</h1>
+          {!isOnNexus && (
+            <Link
+              href="/nexus"
+              className="flex items-center gap-1.5 text-[#00C49F] hover:text-white text-[11px] font-bold uppercase tracking-wider transition-colors group"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>NEXUS</span>
+              <ChevronRight className="w-3 h-3 text-slate-600" />
+            </Link>
+          )}
+          <h1 className="font-bold text-white text-base tracking-tight">{title}</h1>
         </div>
 
-        {/* Right Search & Controls */}
+        {/* Right Controls */}
         <div className="flex items-center gap-3">
           {/* Global Search Box */}
           <div className="relative hidden md:flex items-center">
@@ -59,36 +70,10 @@ export const Header: React.FC = () => {
             />
           </div>
 
-          {/* Perspective Indicator for Experts */}
-          {isExpertAccount && (
-            <div className="hidden sm:flex items-center bg-[#112233] border border-slate-800 rounded-xl p-1 text-xs">
-              <button
-                onClick={() => setPerspective('client')}
-                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all ${
-                  perspective === 'client'
-                    ? 'bg-[#00C49F] text-slate-950 shadow-xs'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Client View
-              </button>
-              <button
-                onClick={() => setPerspective('expert')}
-                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all ${
-                  perspective === 'expert'
-                    ? 'bg-[#00C49F] text-slate-950 shadow-xs'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Expert View
-              </button>
-            </div>
-          )}
-
           {/* GLOBAL NEXUS ASSISTANT BUTTON */}
           <button
             onClick={() => setDrawerOpen(true)}
-            className="px-3.5 py-2 bg-[#00C49F]/10 hover:bg-[#00C49F]/20 border border-[#00C49F]/40 text-[#00C49F] rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition-all hover:scale-102"
+            className="px-3.5 py-2 bg-[#00C49F]/10 hover:bg-[#00C49F]/20 border border-[#00C49F]/40 text-[#00C49F] rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition-all"
           >
             <Sparkles className="w-4 h-4 text-[#00C49F]" />
             <span>NEXUS Assistant</span>
@@ -110,3 +95,5 @@ export const Header: React.FC = () => {
     </>
   );
 };
+
+

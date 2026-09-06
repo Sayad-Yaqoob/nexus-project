@@ -28,6 +28,27 @@ def test_authenticated_agent_chat_succeeds():
     assert len(data["response"]) > 0
     assert "suggested_actions" in data
 
+def test_client_context_cannot_elevate_agent_permissions():
+    auth_resp = client.post("/api/v1/auth/mimic", json={"role": "client"})
+    token = auth_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Perspective and capabilities originate in the browser and are advisory.
+    # They must not allow a client account to create seller offerings.
+    chat_resp = client.post(
+        "/api/v1/agent/chat",
+        headers=headers,
+        json={
+            "message": "Create a 1:1 session for $500",
+            "agent_context": {"perspective": "expert", "capabilities": ["client", "expert"]},
+        },
+    )
+
+    assert chat_resp.status_code == 200
+    data = chat_resp.json()
+    assert data["role"] == "client"
+    assert data["response_type"] == "error"
+
 def test_multiturn_agent_session():
     # Login as expert
     auth_resp = client.post("/api/v1/auth/mimic", json={"role": "expert"})

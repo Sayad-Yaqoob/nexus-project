@@ -123,6 +123,43 @@ async def list_user_offerings(
         return []
     return [o.model_dump() for o in profile.offerings]
 
+class CreateOfferingRequest(BaseModel):
+    title: str
+    price: float
+    offer_type: str = "Custom Offering"
+    duration: Optional[str] = "Custom Scope"
+    description: Optional[str] = None
+    file_required: bool = False
+
+@router.post("/offerings")
+async def create_offering_endpoint(
+    req: CreateOfferingRequest,
+    current_user: User = Depends(require_expert_role),
+    data_adapter: DataAdapter = Depends(get_data_adapter),
+    vector_adapter: VectorAdapter = Depends(get_vector_adapter)
+):
+    """Create a new offering directly in database (expert only)."""
+    profile = await data_adapter.get_expert_profile(str(current_user.id))
+    if not profile:
+        raise HTTPException(status_code=400, detail="Expert profile not found for authenticated user")
+    
+    new_offering = Offering(
+        title=req.title,
+        price=req.price,
+        offer_type=req.offer_type,
+        duration=req.duration or "Custom Scope",
+        description=req.description or f"{req.title} on MindGigs",
+        file_required=req.file_required
+    )
+    offering_id = await data_adapter.save_offering(str(profile.id), new_offering)
+    all_exp = await data_adapter.list_experts()
+    await vector_adapter.index_experts(all_exp)
+    return {
+        "status": "success",
+        "id": offering_id,
+        "offering": new_offering.model_dump()
+    }
+
 @router.put("/offerings/{offering_id}")
 async def update_offering_endpoint(
     offering_id: int,

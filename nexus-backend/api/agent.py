@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.deps import get_current_user
@@ -9,7 +9,8 @@ from agent.service import AgentService
 router = APIRouter()
 
 class AgentChatRequest(BaseModel):
-    message: str
+    # Large enough for detailed briefs, while keeping LLM requests bounded.
+    message: str = Field(min_length=1, max_length=12000)
     session_id: Optional[str] = None
     agent_context: Optional[Dict[str, Any]] = None
     current_route: Optional[str] = None

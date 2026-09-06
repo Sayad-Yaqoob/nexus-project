@@ -90,14 +90,71 @@ function ActionCard({ message, onConfirm, onCancel }: ResponseRendererProps) {
             <dt className="font-semibold text-slate-600">Type:</dt>
             <dd className="font-medium text-slate-800">{draft.offer_type}</dd>
           </div>
-          <div className="flex justify-between py-1 border-b border-slate-200/60">
-            <dt className="font-semibold text-slate-600">Price:</dt>
-            <dd className="font-extrabold text-[#00A887]">${price || draft.price} USD</dd>
-          </div>
-          <div className="flex justify-between py-1 border-b border-slate-200/60">
-            <dt className="font-semibold text-slate-600">Duration:</dt>
-            <dd className="font-medium text-slate-800">{duration || draft.duration || '60 min'}</dd>
-          </div>
+          {draft.price !== undefined && draft.price !== null && (
+            <div className="flex justify-between py-1 border-b border-slate-200/60">
+              <dt className="font-semibold text-slate-600">Price:</dt>
+              <dd className="font-extrabold text-[#00A887]">${price || draft.price} USD</dd>
+            </div>
+          )}
+          {draft.duration && (
+            <div className="flex justify-between py-1 border-b border-slate-200/60">
+              <dt className="font-semibold text-slate-600">Total Duration:</dt>
+              <dd className="font-medium text-slate-800">{duration || draft.duration}</dd>
+            </div>
+          )}
+          {draft.availability && (
+            <div className="py-1.5 border-b border-slate-200/60 bg-[#00C49F]/10 px-2.5 rounded-lg text-emerald-900 space-y-1">
+              <div className="flex items-center justify-between">
+                <dt className="font-bold flex items-center gap-1.5 text-xs">
+                  <Calendar className="w-3.5 h-3.5 text-[#00A887]" />
+                  <span>Available Days:</span>
+                </dt>
+                <dd className="font-extrabold text-right">
+                  {Array.isArray(draft.availability.days) ? (draft.availability.days.length > 3 ? `${draft.availability.days[0]}–${draft.availability.days[draft.availability.days.length - 1]}` : draft.availability.days.join(', ')) : 'Mon–Fri'}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-slate-700 pt-0.5">
+                <dt className="font-medium flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-[#00A887]" />
+                  <span>Available Hours:</span>
+                </dt>
+                <dd className="font-mono font-bold text-slate-900">
+                  {draft.availability.start || '09:00 AM'} – {draft.availability.end || '05:00 PM'}
+                </dd>
+              </div>
+            </div>
+          )}
+
+          {/* Newsletter specific preview */}
+          {draft.offer_type === 'Newsletter' && (
+            <div className="py-2 border-b border-slate-200/60 bg-purple-50 px-2.5 rounded-lg text-purple-950 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="font-bold">Target Audience:</span>
+                <span className="font-semibold text-purple-800">{draft.target_audience || 'Subscribers & Clients'}</span>
+              </div>
+              {draft.content_draft && (
+                <div className="pt-1 text-[11px] text-purple-900 italic">
+                  "{draft.content_draft}"
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Custom Offer specific preview */}
+          {draft.offer_type === 'Custom Offer' && (
+            <div className="py-2 border-b border-slate-200/60 bg-blue-50 px-2.5 rounded-lg text-blue-950 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="font-bold">Delivery Timeline:</span>
+                <span className="font-semibold text-blue-800">{draft.delivery_timeline || '3-5 business days'}</span>
+              </div>
+              {draft.custom_scope && (
+                <div className="pt-1 text-[11px] text-blue-900 font-medium">
+                  Scope: {draft.custom_scope}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="py-1">
             <dt className="font-semibold text-slate-600 mb-0.5">Description:</dt>
             <dd className="text-slate-800 leading-relaxed">{description || draft.description || 'Consulting session'}</dd>

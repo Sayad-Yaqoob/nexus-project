@@ -14,11 +14,11 @@ import { BookingsView } from '@/components/marketplace/BookingsView';
 import { ExpertStudio } from '@/components/nexus/ExpertStudio';
 import { ClientMatch } from '@/components/nexus/ClientMatch';
 import { 
-  Sparkles, Send, Bot, User as UserIcon, RefreshCw, ChevronRight, AlertCircle, Layers, Calendar, Search, Edit3
+  Sparkles, Send, Bot, User as UserIcon, RefreshCw, ChevronRight, AlertCircle, Layers, Calendar, Search, Edit3, Mic, MicOff
 } from 'lucide-react';
 
 function NexusWorkspaceContent() {
-  const { user, getAgentContext } = useAuth();
+  const { user, perspective, getAgentContext } = useAuth();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<'canvas' | 'offers' | 'bookings' | 'studio' | 'search'>('canvas');
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
@@ -27,19 +27,82 @@ function NexusWorkspaceContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Perspective state for expert accounts
-  const [perspective, setPerspective] = useState<'expert' | 'client'>('expert');
+  // Speech-to-Text State
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const speechPrefixRef = useRef('');
+
+  const toggleListening = () => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) {}
+      }
+      return;
+    }
+
+    const SpeechRecognition = typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    if (!SpeechRecognition) {
+      setError('Speech recognition is not supported in this browser. Please use Google Chrome, Microsoft Edge, or Apple Safari.');
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      // This is one-shot speech-to-text, not a voice conversation. Stopping
+      // after a natural pause avoids duplicate transcripts across results.
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      recognition.lang = 'en-US';
+      speechPrefixRef.current = inputMessage.trim();
+
+      recognition.onstart = () => {
+        setError(null);
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join('')
+          .trim();
+        if (transcript.trim()) {
+          setInputMessage([speechPrefixRef.current, transcript].filter(Boolean).join(' '));
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn('Speech recognition notice:', event.error);
+        if (event.error === 'not-allowed') {
+          setError('Microphone permission denied. Please enable microphone access in your browser settings.');
+        } else if (event.error !== 'no-speech') {
+          setError(`Speech recognition notice: ${event.error}`);
+        }
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        recognitionRef.current = null;
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err: any) {
+      console.error('Failed to start speech recognition:', err);
+      setError('Could not access microphone for speech recognition.');
+      setIsListening(false);
+    }
+  };
+
+  useEffect(() => () => {
+    try { recognitionRef.current?.abort(); } catch (e) {}
+  }, []);
   
   // Profile modal state
   const [selectedExpert, setSelectedExpert] = useState<ExpertMatch | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (user) {
-      setPerspective(user.role === 'expert' ? 'expert' : 'client');
-    }
-  }, [user]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -50,23 +113,29 @@ function NexusWorkspaceContent() {
   }, [messages, loading]);
 
   useEffect(() => {
-    if (user && messages.length === 0) {
+    if (user) {
       const isExpert = perspective === 'expert';
       const welcomeText = isExpert
         ? `Hello ${user.full_name}! I am NEXUS, your autonomous AI growth & sales advisor. How can I help optimize your expert profile, build high-converting offerings (1:1 sessions, digital products, subscriptions), or check your earnings today?`
         : `Welcome ${user.full_name}! I am NEXUS, your marketplace advisor. Tell me what technical expertise, strategy consultation, or service you are looking for, and I will recommend top verified experts.`;
 
-      setMessages([
-        {
+      const welcomeMessage: AgentMessage = {
           id: 'welcome',
           role: 'assistant',
           content: welcomeText,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           suggested_actions: isExpert
-            ? ['Create a 1:1 session for $500', 'Check my earnings', 'Edit offer price']
-            : ['Find marketing expert for author product', 'Find AI & LLM Experts', 'View My Bookings']
-        }
-      ]);
+            ? ['Create a 1:1 Consultation Session for $300 (60 min)', 'Draft a Weekly Subscriber Newsletter Broadcast', 'Check My Verified Net Earnings & Payouts', 'Set Weekly Availability Hours (Mon–Fri, 9 AM – 5 PM)']
+            : ['Find an AI & Machine Learning Expert for My Project', 'Search Growth & Marketing Strategists for Product Launch', 'View My Scheduled Bookings & Video Sessions', 'Explore Verified Experts Across All Categories']
+      };
+
+      // Keep an untouched greeting in sync when the account perspective changes.
+      // Existing conversations are deliberately left intact.
+      setMessages(current =>
+        current.length === 0 || (current.length === 1 && current[0].id === 'welcome')
+          ? [welcomeMessage]
+          : current
+      );
     }
   }, [user, perspective]);
 
@@ -395,26 +464,61 @@ function NexusWorkspaceContent() {
                 }}
                 className="max-w-4xl mx-auto relative flex items-center"
               >
+                {/* Active Listening Floating Banner */}
+                {isListening && (
+                  <div className="absolute -top-11 left-4 px-4 py-1.5 bg-red-600 text-white rounded-full text-xs font-bold flex items-center gap-2 shadow-lg animate-bounce z-10 border border-red-400">
+                    <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
+                    <span>Listening... Speak your prompt to NEXUS now</span>
+                  </div>
+                )}
+
                 <input
                   type="text"
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   placeholder={
-                    perspective === 'expert'
+                    isListening
+                      ? 'Listening to your voice... speak now'
+                      : perspective === 'expert'
                       ? 'e.g. Create a 1:1 session for $500 marketing strategy, Change my marketing session to $600, Check my earnings...'
                       : 'e.g. I need an expert for our marketing team to help us launch the new product related to authors...'
                   }
                   disabled={loading}
-                  className="w-full bg-[#F8F9FA] border border-[#CBD5E1] rounded-2xl pl-5 pr-14 py-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#00C49F] focus:bg-white shadow-xs transition-all font-medium"
+                  className={`w-full bg-[#F8F9FA] border rounded-2xl pl-5 pr-28 py-4 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white shadow-xs transition-all font-medium ${
+                    isListening ? 'border-red-500 ring-2 ring-red-400/30' : 'border-[#CBD5E1] focus:border-[#00C49F]'
+                  }`}
                 />
 
-                <button
-                  type="submit"
-                  disabled={loading || !inputMessage.trim()}
-                  className="absolute right-2.5 p-3 rounded-xl bg-[#00C49F] text-slate-950 hover:bg-[#00B08E] disabled:bg-slate-200 disabled:text-slate-400 font-bold transition-all shadow-xs"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
+                <div className="absolute right-2.5 flex items-center gap-1.5">
+                  {/* Voice / Speech to Text Button */}
+                  <button
+                    type="button"
+                    onClick={toggleListening}
+                    disabled={loading}
+                    title={isListening ? 'Stop listening' : 'Talk to NEXUS (Speech-to-Text)'}
+                    className={`p-3 rounded-xl font-bold transition-all shadow-xs flex items-center justify-center ${
+                      isListening
+                        ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse ring-2 ring-red-300'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200'
+                    }`}
+                  >
+                    {isListening ? (
+                      <MicOff className="w-4 h-4 text-white" />
+                    ) : (
+                      <Mic className="w-4 h-4" />
+                    )}
+                  </button>
+
+                  {/* Send Button */}
+                  <button
+                    type="submit"
+                    disabled={loading || !inputMessage.trim()}
+                    className="p-3 rounded-xl bg-[#00C49F] text-slate-950 hover:bg-[#00B08E] disabled:bg-slate-200 disabled:text-slate-400 font-bold transition-all shadow-xs"
+                    title="Send message to NEXUS"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
               </form>
             </footer>
           </>

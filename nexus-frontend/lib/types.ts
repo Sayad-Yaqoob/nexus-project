@@ -97,7 +97,14 @@ export interface OfferingDraft {
     start?: string;
     end?: string;
   };
+  target_audience?: string;
+  content_draft?: string;
+  newsletter_subject?: string;
+  delivery_timeline?: string;
+  custom_scope?: string;
 }
+
+export type Offering = OfferingDraft;
 
 export interface AvailabilityDay {
   available: boolean;

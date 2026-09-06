@@ -11,6 +11,12 @@ class Availability(BaseModel):
     start: Optional[str] = None
     end: Optional[str] = None
 
+    @property
+    def hours_summary(self) -> str:
+        if self.start and self.end:
+            return f"{self.start} - {self.end}"
+        return "09:00 AM - 05:00 PM"
+
 
 class OfferingDraft(BaseModel):
     id: Optional[Union_ID] = None
@@ -43,7 +49,16 @@ class OfferingDraft(BaseModel):
     # Highlight specific fields
     image_url: Optional[str] = None
     link_url: Optional[str] = None
+
+    # Custom Offer specific fields
+    custom_scope: Optional[str] = None
+    delivery_timeline: Optional[str] = None
     
+    # Newsletter specific fields
+    newsletter_subject: Optional[str] = None
+    target_audience: Optional[str] = None
+    content_draft: Optional[str] = None
+
     availability: Optional[Availability] = None
 
 
@@ -79,6 +94,8 @@ def resolve_offering_type(message: str, current_screen: Optional[str] = None) ->
     lowered = message.lower()
     
     # Explicit keywords override screen context
+    if "newsletter" in lowered or "broadcast" in lowered or "email digest" in lowered:
+        return "Newsletter"
     if "book" in lowered or "ebook" in lowered or "publish my book" in lowered:
         return "Book"
     if "subscription" in lowered or "monthly plan" in lowered or "recurring" in lowered or "every month" in lowered or "/month" in lowered or "/mo" in lowered:
@@ -87,14 +104,16 @@ def resolve_offering_type(message: str, current_screen: Optional[str] = None) ->
         return "Digital Product"
     if "highlight" in lowered or "card" in lowered:
         return "Highlight"
-    if "custom offer" in lowered or "custom service" in lowered:
+    if "custom offer" in lowered or "custom service" in lowered or "custom project" in lowered:
         return "Custom Offer"
     if "1:1" in lowered or "one-on-one" in lowered or "session" in lowered or "consult" in lowered or "advisory" in lowered or "call" in lowered:
         return "1:1 Session"
 
-    # Fallback to screen context if natural language is ambiguous (e.g. "Create another one for $250")
+    # Fallback to screen context if natural language is ambiguous
     if current_screen:
         screen_low = current_screen.lower()
+        if "newsletter" in screen_low:
+            return "Newsletter"
         if "book" in screen_low:
             return "Book"
         if "subscription" in screen_low:
@@ -109,24 +128,67 @@ def resolve_offering_type(message: str, current_screen: Optional[str] = None) ->
     return "1:1 Session"
 
 
+def parse_availability(text: str) -> Availability:
+    lowered = text.lower()
+    days: List[str] = []
+    
+    day_map = {
+        "monday": "Monday", "mon": "Monday",
+        "tuesday": "Tuesday", "tue": "Tuesday",
+        "wednesday": "Wednesday", "wed": "Wednesday",
+        "thursday": "Thursday", "thu": "Thursday",
+        "friday": "Friday", "fri": "Friday",
+        "saturday": "Saturday", "sat": "Saturday",
+        "sunday": "Sunday", "sun": "Sunday",
+    }
+    
+    if "weekday" in lowered:
+        days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    elif "weekend" in lowered:
+        days = ["Saturday", "Sunday"]
+    else:
+        for k, v in day_map.items():
+            if re.search(r"\b" + k + r"\b", lowered):
+                if v not in days:
+                    days.append(v)
+                    
+    if not days:
+        days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+
+    # Parse hours/time if mentioned (e.g. "9am to 5pm", "10:00 - 18:00", "2pm to 6pm", "from 10am until 4pm")
+    time_match = re.search(r"(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(?:to|-|until|through)\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)", lowered)
+    if time_match:
+        start_time = time_match.group(1).strip().upper()
+        end_time = time_match.group(2).strip().upper()
+        if not any(m in start_time for m in ["AM", "PM"]):
+            start_time += " AM"
+        if not any(m in end_time for m in ["AM", "PM"]):
+            end_time += " PM"
+    else:
+        start_time = "09:00 AM"
+        end_time = "05:00 PM"
+
+    return Availability(days=days, start=start_time, end=end_time)
+
+
 def extract_offering_entities(message: str, current_screen: Optional[str] = None) -> OfferingDraft:
     offering_type = resolve_offering_type(message, current_screen)
     price = parse_price(message)
     duration = parse_duration(message)
     lowered = message.lower()
     
-    title_match = re.search(r"(?:title|called|named)\s*(?:is|:)?\s*[\"']?([^\"'.!,?]+)", message, re.I)
+    title_match = re.search(r"(?:title|called|named|subject|titled)\s*(?:is|:)?\s*[\"']?([^\"'.!,?]+)", message, re.I)
     title = title_match.group(1).strip() if title_match else None
     
     if not title:
-        topic_match = re.search(r"(?:offering|session about|consulting for|advisory on|book about|subscription for|where i will|where i|help)\s+([a-zA-Z0-9\s&]+?)(?:\.|\$|total|for|\d+|$)", message, re.I)
+        topic_match = re.search(r"(?:offering|session about|consulting for|advisory on|book about|subscription for|newsletter for|newsletter about|where i will|where i|help)\s+([a-zA-Z0-9\s&]+?)(?:\.|\$|total|for|\d+|$)", message, re.I)
         if topic_match:
             raw_topic = topic_match.group(1).strip()
             raw_topic = re.sub(r"\b(and other related things|and related things|and so on|total time|total|time|companies|better)\b", "", raw_topic, flags=re.I).strip()
             if raw_topic and len(raw_topic) > 3:
                 title = " ".join([w.capitalize() for w in raw_topic.split() if w.lower() not in ["where", "i", "will"]])
 
-    if not title or len(title) < 3 or title.lower() in ["for", "a", "an", "the", "session", "book", "subscription"]:
+    if not title or len(title) < 3 or title.lower() in ["for", "a", "an", "the", "session", "book", "subscription", "newsletter"]:
         if "finance" in lowered or "cash flow" in lowered or "money" in lowered or "cfo" in lowered:
             title = "Financial & Cash Flow Management Advisory"
         elif "marketing" in lowered or "growth" in lowered or "ads" in lowered:
@@ -139,12 +201,26 @@ def extract_offering_entities(message: str, current_screen: Optional[str] = None
             title = "Monthly Advisory Club"
         elif offering_type == "Digital Product":
             title = "Specialist Digital Playbook"
+        elif offering_type == "Newsletter":
+            title = "Expert Weekly Digest"
+        elif offering_type == "Custom Offer":
+            title = "Custom Advisory & Implementation Project"
         else:
             title = f"1:1 Advisory Session" if "1:1" in offering_type else f"{offering_type} Offering"
 
+    availability = parse_availability(message) if offering_type == "1:1 Session" else None
+
+    # Determine description and specific fields
     description = f"{title} — 1:1 session offering on MindGigs." if offering_type == "1:1 Session" else f"{title} — premium {offering_type.lower()} on MindGigs."
     if "help companies" in lowered or "cash flow" in lowered or "finances" in lowered:
         description = "1:1 consultation session helping companies manage finances, optimize unit economics, and better handle cash flow."
+
+    newsletter_subject = title if offering_type == "Newsletter" else None
+    target_audience = "Subscribers & Clients" if offering_type == "Newsletter" else None
+    content_draft = f"Welcome to {title}! Here are the key insights and strategic updates for this week." if offering_type == "Newsletter" else None
+
+    custom_scope = "Custom scope tailored to specific project requirements." if offering_type == "Custom Offer" else None
+    delivery_timeline = "3-5 business days" if offering_type == "Custom Offer" else None
     
     file_required = offering_type in ["Book", "Digital Product"]
     
@@ -152,17 +228,22 @@ def extract_offering_entities(message: str, current_screen: Optional[str] = None
     if "yearly" in lowered or "annual" in lowered:
         billing_period = "yearly"
 
-    # Pre-fill reasonable default price if not specified in text
-    final_price = price if price is not None else 250.0
+    final_price = price if price is not None else (0.0 if offering_type == "Newsletter" else None)
 
     return OfferingDraft(
         title=title,
         offer_type=offering_type,
         price=final_price,
-        duration=duration or ("N/A" if file_required else "60 min"),
+        duration=duration or ("N/A" if file_required or offering_type in ["Newsletter", "Custom Offer"] else "60 min"),
         description=description,
         billing_period=billing_period if offering_type == "Subscription" else None,
-        file_required=file_required
+        file_required=file_required,
+        availability=availability,
+        custom_scope=custom_scope,
+        delivery_timeline=delivery_timeline,
+        newsletter_subject=newsletter_subject,
+        target_audience=target_audience,
+        content_draft=content_draft
     )
 
 

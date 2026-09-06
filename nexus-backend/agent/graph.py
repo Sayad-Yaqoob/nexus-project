@@ -20,7 +20,7 @@ def route_by_intent(state: NexusState) -> str:
     intent = state.get("intent")
     if intent in [NexusIntent.EXPERT_PROFILE_CREATE, NexusIntent.EXPERT_PROFILE_EDIT]:
         return "expert_profile"
-    elif intent == NexusIntent.OFFERING_CREATE:
+    elif intent in [NexusIntent.OFFERING_CREATE, NexusIntent.NEWSLETTER_CREATE, NexusIntent.CUSTOM_OFFERING_CREATE]:
         return "offering_create"
     elif intent == NexusIntent.OFFERING_EDIT:
         return "offering_edit"

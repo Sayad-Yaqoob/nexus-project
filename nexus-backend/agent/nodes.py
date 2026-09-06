@@ -37,12 +37,19 @@ async def node_load_context(state: NexusState) -> Dict[str, Any]:
     user_id = state.get("user_id", 1)
     
     ctx = await data_adapter.get_user_context(user_id)
+    requested_role = state.get("current_perspective") or state.get("role")
+    
     if ctx:
+        # The browser may choose a perspective, but it must never grant a
+        # capability that the authenticated account does not own.
+        can_act_as_expert = ctx.is_expert or ctx.expert_profile is not None
+        active_role = "client" if requested_role == "client" else ("expert" if can_act_as_expert else "client")
+                
         user_dict = {
             "id": ctx.user.id,
             "full_name": ctx.user.full_name,
             "email": ctx.user.email,
-            "role": ctx.role,
+            "role": active_role,
             "public_handle": ctx.user.public_handle,
             "currency": ctx.user.currency,
         }
@@ -51,24 +58,27 @@ async def node_load_context(state: NexusState) -> Dict[str, Any]:
         
         user_context = {
             "user": user_dict,
-            "role": ctx.role,
-            "is_expert": ctx.is_expert,
-            "is_client": ctx.is_client,
+            "role": active_role,
+            "is_expert": active_role == "expert",
+            "is_client": active_role == "client",
             "expert_profile": expert_dict,
             "offerings": offerings_list
         }
     else:
+        # If context loading fails, preserve the server-resolved account role
+        # rather than trusting a perspective value supplied by the browser.
+        active_role = state.get("role", "client")
         user_context = {
-            "user": {"id": user_id, "role": state.get("role", "client")},
-            "role": state.get("role", "client"),
-            "is_expert": False,
-            "is_client": True,
+            "user": {"id": user_id, "role": active_role},
+            "role": active_role,
+            "is_expert": active_role == "expert",
+            "is_client": active_role == "client",
             "expert_profile": None,
             "offerings": []
         }
 
     return {
-        "role": user_context["role"],
+        "role": active_role,
         "user_context": user_context
     }
 
@@ -88,8 +98,8 @@ async def node_classify_intent(state: NexusState) -> Dict[str, Any]:
     pending_act = pending.get("action")
     msg_lower = message.lower().strip()
 
-    # 1. Explicit Confirmation or Cancellation of pending action
-    if pending_act and any(k in msg_lower for k in ["cancel", "forget that", "stop", "nevermind", "abort"]):
+    # 1. Explicit Cancel / Abort
+    if pending_act and any(k in msg_lower for k in ["cancel", "forget that", "stop", "nevermind", "abort", "reset"]):
         return {
             "intent": NexusIntent.GENERAL_CHAT,
             "pending_action": {},
@@ -98,13 +108,46 @@ async def node_classify_intent(state: NexusState) -> Dict[str, Any]:
             "draft": None
         }
 
+    # 2. View / Show / List Navigation & Queries (High Priority — clears stuck pending creation state)
+    view_offerings_triggers = ["show me my offerings", "show my offerings", "show my offers", "show offers", "view offers", "view my offers", "my offerings", "my offers", "list my offerings", "list offers"]
+    if any(k in msg_lower for k in view_offerings_triggers):
+        return {
+            "intent": "navigation",
+            "target_route": "/sell/offers" if role == "expert" else "/experts",
+            "pending_action": {},
+            "requires_confirmation": False,
+            "draft": None
+        }
+
+    view_bookings_triggers = ["show my bookings", "show me my bookings", "view my bookings", "my bookings", "check my schedule", "list bookings", "incoming bookings", "check bookings"]
+    if any(k in msg_lower for k in view_bookings_triggers):
+        return {
+            "intent": NexusIntent.BOOKINGS_INQUIRY if role == "expert" else "navigation",
+            "target_route": "/my-bookings",
+            "pending_action": {},
+            "requires_confirmation": False,
+            "draft": None
+        }
+
+    # 3. Strategy / Advisory Questions (e.g. "should i launch a new product or what", "how to sell", "what is the best offering")
+    question_triggers = ["should i", "how should i", "what should i", "do you think i should", "is it better to", "how do i", "can you explain"]
+    if any(msg_lower.startswith(q) or q in msg_lower for q in question_triggers):
+        return {
+            "intent": NexusIntent.GENERAL_CHAT,
+            "pending_action": {},
+            "requires_confirmation": False,
+            "confirmation_action": None,
+            "draft": None
+        }
+
+    # 4. Explicit Confirmation of pending action
     if pending_act == "publish_offering" and any(k in msg_lower for k in ["confirm", "yes", "publish", "do it", "approve", "go ahead"]):
         return {"intent": NexusIntent.OFFERING_CREATE}
 
     if pending_act == "update_offering" and any(k in msg_lower for k in ["confirm", "yes", "update", "do it", "approve"]):
         return {"intent": NexusIntent.OFFERING_EDIT}
 
-    # 2. Explicit Search Expert Intent (Client matching - high priority when user asks for an expert)
+    # 5. Explicit Search Expert Intent (Client matching)
     search_triggers = [
         r"\bfind an expert\b", r"\bsearch for expert\b", r"\bhire an expert\b", r"\blooking for an expert\b",
         r"\bneed an expert\b", r"\bexpert for\b", r"\brecommend an expert\b", r"\bwho can help\b",
@@ -114,54 +157,58 @@ async def node_classify_intent(state: NexusState) -> Dict[str, Any]:
     if any(re.search(pat, msg_lower) for pat in search_triggers):
         return {"intent": NexusIntent.CLIENT_MATCH_SEARCH}
 
-    # 3. Offering Creation Intent (When user expresses intent to create/offer/sell)
-    creation_triggers = [
-        "create", "add", "offer", "sell", "publish", "new offer", "new book",
-        "new subscription", "new product", "new session", "new booking", "setup", "will offer",
-        "i will offer", "list a", "make a", "need to create", "need to publish", "want to create"
-    ]
-    if any(k in msg_lower for k in creation_triggers):
+    # 6. Explicit Offering & Newsletter Creation Intent
+    offering_items = ["book", "subscription", "digital product", "session", "1:1", "newsletter", "custom offer", "consultation"]
+    creation_verbs = ["create a", "create new", "publish a", "publish new", "sell a", "sell my", "add a", "add new", "offer a", "draft a", "launch a"]
+    
+    if any(item in msg_lower for item in offering_items) and any(verb in msg_lower for verb in creation_verbs):
+        if "newsletter" in msg_lower:
+            return {"intent": NexusIntent.NEWSLETTER_CREATE}
         return {"intent": NexusIntent.OFFERING_CREATE}
 
-    # 4. Navigation Intent
+    # 7. Expert Profile Creation Intent (Onboarding)
+    profile_creation_triggers = [
+        "become an expert", "become expert", "i want to become a seller", "start selling on mindgigs",
+        "i want to be an expert", "create my profile", "set up my profile",
+        "onboard as expert", "join as expert", "register as expert",
+        "become a seller", "start as expert"
+    ]
+    if any(k in msg_lower for k in profile_creation_triggers):
+        return {"intent": NexusIntent.EXPERT_PROFILE_CREATE}
+
+    # 8. General Explicit Creation Phrases
+    if any(msg_lower.startswith(v) for v in ["create ", "publish ", "sell ", "add ", "draft "]):
+        if "newsletter" in msg_lower:
+            return {"intent": NexusIntent.NEWSLETTER_CREATE}
+        return {"intent": NexusIntent.OFFERING_CREATE}
+
+    # 9. Explicit Navigation Intent
     if any(k in msg_lower for k in ["take me to", "go to", "navigate to", "open screen", "show screen"]):
         if "booking" in msg_lower:
-            return {"intent": "navigation", "target_route": "/my-bookings"}
+            return {"intent": "navigation", "target_route": "/my-bookings", "pending_action": {}, "draft": None}
         if "purchase" in msg_lower:
-            return {"intent": "navigation", "target_route": "/my-purchases"}
+            return {"intent": "navigation", "target_route": "/my-purchases", "pending_action": {}, "draft": None}
         if "offer" in msg_lower:
-            return {"intent": "navigation", "target_route": "/sell/offers"}
+            return {"intent": "navigation", "target_route": "/sell/offers", "pending_action": {}, "draft": None}
         if "book" in msg_lower:
-            return {"intent": "navigation", "target_route": "/sell/books"}
+            return {"intent": "navigation", "target_route": "/sell/books", "pending_action": {}, "draft": None}
         if "subscription" in msg_lower:
-            return {"intent": "navigation", "target_route": "/sell/subscriptions"}
+            return {"intent": "navigation", "target_route": "/sell/subscriptions", "pending_action": {}, "draft": None}
         if "expert" in msg_lower:
-            return {"intent": "navigation", "target_route": "/experts"}
+            return {"intent": "navigation", "target_route": "/experts", "pending_action": {}, "draft": None}
         if "account" in msg_lower:
-            return {"intent": "navigation", "target_route": "/account/general"}
+            return {"intent": "navigation", "target_route": "/account/general", "pending_action": {}, "draft": None}
 
-    if "my offers" in msg_lower or "show offers" in msg_lower or "view offers" in msg_lower:
-        if role == "expert":
-            return {"intent": "navigation", "target_route": "/sell/offers"}
-    if "my bookings" in msg_lower or "show my bookings" in msg_lower or "view my bookings" in msg_lower or "check my schedule" in msg_lower or "list bookings" in msg_lower:
-        return {"intent": "navigation", "target_route": "/my-bookings"}
-    if "find experts" in msg_lower or "search experts" in msg_lower or "browse experts" in msg_lower:
-        return {"intent": "navigation", "target_route": "/experts"}
-
-    # 5. Financial & Earnings Inquiries
+    # 10. Financial & Earnings Inquiries
     if any(k in msg_lower for k in ["earning", "payout", "revenue", "paid", "income"]):
-        return {"intent": NexusIntent.EARNINGS_INQUIRY}
+        return {"intent": NexusIntent.EARNINGS_INQUIRY, "pending_action": {}, "draft": None}
 
-    # 6. Bookings Inquiries (Viewing existing bookings explicitly)
-    if any(k in msg_lower for k in ["my booking", "show booking", "incoming booking", "check booking", "scheduled booking"]):
-        return {"intent": NexusIntent.BOOKINGS_INQUIRY if role == "expert" else NexusIntent.BOOKING_REQUEST}
-
-    # 7. Offering Editing Intent
-    if role == "expert" and any(k in msg_lower for k in ["edit offer", "update price", "change price", "change my", "change price of"]):
+    # 11. Offering Editing Intent
+    if role == "expert" and any(k in msg_lower for k in ["edit offer", "update price", "change price"]):
         return {"intent": NexusIntent.OFFERING_EDIT}
 
-    # 8. Profile Editing Intent
-    if role == "expert" and any(k in msg_lower for k in ["profile", "bio", "headline", "tag"]):
+    # 12. Profile Editing Intent
+    if role == "expert" and any(k in msg_lower for k in ["edit profile", "update bio", "change headline"]):
         return {"intent": NexusIntent.EXPERT_PROFILE_EDIT}
 
     # Closed-world LLM Classifier Fallback
@@ -261,7 +308,7 @@ async def node_offering_create(state: NexusState) -> Dict[str, Any]:
     missing = []
     if not draft.title:
         missing.append("title")
-    if draft.price is None:
+    if draft.price is None and draft.offer_type != "Newsletter":
         missing.append("price")
         
     if missing:
@@ -275,8 +322,22 @@ async def node_offering_create(state: NexusState) -> Dict[str, Any]:
         }
 
     # 4. Form Action Preview State
+    if draft.offer_type == "Newsletter":
+        preview_msg = f"I have prepared your Newsletter broadcast '{draft.title}'. Target Audience: {draft.target_audience or 'Subscribers'}."
+    elif draft.offer_type == "Custom Offer":
+        preview_msg = f"I have prepared your Custom Offering '{draft.title}' (${draft.price}). Timeline: {draft.delivery_timeline or '3-5 days'}."
+    elif draft.offer_type == "1:1 Session":
+        preview_msg = f"I have prepared the details for your 1:1 Session '{draft.title}' (${draft.price}, {draft.duration or '60 min'})."
+        if draft.availability:
+            avail_days = ", ".join(draft.availability.days) if len(draft.availability.days) <= 3 else f"{draft.availability.days[0]}–{draft.availability.days[-1]}"
+            preview_msg += f" Availability: {avail_days} from {draft.availability.start} to {draft.availability.end}."
+    else:
+        preview_msg = f"I have prepared the details for your {draft.offer_type} '{draft.title}' (${draft.price})."
+    
+    preview_msg += " Review the preview below before confirming."
+
     return {
-        "response_text": normalize_response_text(f"I have prepared the details for your {draft.offer_type} '{draft.title}'. Review and edit the fields below before publishing."),
+        "response_text": normalize_response_text(preview_msg),
         "response_type": "action_preview",
         "draft": draft.model_dump(),
         "pending_action": {"action": "publish_offering", "user_id": state["user_id"]},
@@ -486,14 +547,11 @@ async def node_client_search(state: NexusState) -> Dict[str, Any]:
     search_results = await vector_adapter.search(query_vec, top_k=min(3, max(len(all_experts), 1)))
 
     matches_list = []
-    # Rank-based score offsets ensure results are always meaningfully distinct (not identical %)
-    _rank_offsets = [0.0, -6.3, -12.9]
     for rank_idx, (exp_id, base_score) in enumerate(search_results):
         prof = await data_adapter.get_expert_profile(str(exp_id))
         if prof:
             raw_pct = base_score * 100.0 if base_score <= 1.0 else base_score
-            offset = _rank_offsets[rank_idx] if rank_idx < len(_rank_offsets) else -(rank_idx * 6.5)
-            pct_score = round(min(98.5, max(68.0, raw_pct + offset)), 1)
+            pct_score = round(min(99.0, max(55.0, raw_pct)), 1)
             tags_list = prof.expertise_tags if isinstance(prof.expertise_tags, list) else [t.strip() for t in prof.expertise_tags.split(",") if t.strip()]
 
             # Generate smart, grounded LLM reasoning for why this expert is relevant to the client's exact problem
@@ -617,11 +675,14 @@ async def node_respond(state: NexusState) -> Dict[str, Any]:
     system_prompt = f"""You are NEXUS, the intelligent AI operating assistant for MindGigs.
 User: {user_name} ({role.upper()}).
 Goal: Provide 1-3 short, clean sentences guiding the user or operating MindGigs.
-Never invent fake features, ratings, prices, or fake checkout flows.
+Use only facts present in the user's message or verified platform data supplied by deterministic tools.
+Never invent features, ratings, prices, earnings, availability, booking status, or checkout flows.
+When information is missing, say what is needed or provide clearly-labelled general guidance.
 """
+    from agent.intents import get_role_aware_suggested_actions
     raw_response = await llm.generate(message, system_prompt=system_prompt)
     clean_response = normalize_response_text(raw_response)
-    suggested = SUGGESTED_ACTIONS_BY_INTENT.get(intent, ["How does NEXUS work?", "Explore Platform"])
+    suggested = get_role_aware_suggested_actions(intent, role)
 
     return {
         "response_text": clean_response,

@@ -105,8 +105,18 @@ CAPABILITY_REGISTRY: Dict[str, Capability] = {
         requires_confirmation=True,
         read_only=False,
         required_fields=["title", "price"],
-        optional_fields=["description"],
+        optional_fields=["description", "custom_scope", "delivery_timeline"],
         target_routes=["/sell/custom-offerings", "/sell/offers"]
+    ),
+    "create_newsletter": Capability(
+        name="create_newsletter",
+        description="Create and broadcast a newsletter digest to audience and subscribers",
+        expert_only=True,
+        requires_confirmation=True,
+        read_only=False,
+        required_fields=["title"],
+        optional_fields=["newsletter_subject", "target_audience", "content_draft"],
+        target_routes=["/sell/offers"]
     ),
     "create_highlight": Capability(
         name="create_highlight",

@@ -30,8 +30,10 @@ class GroqAdapter(LLMAdapter):
         self._cache: Dict[str, tuple[float, Any]] = {}
         self._cache_ttl = 300 # seconds
 
-    def _get_cache_key(self, prompt: str, model: str) -> str:
-        return f"{model}:{hash(prompt)}"
+    def _get_cache_key(self, prompt: str, model: str, system_prompt: Optional[str] = None) -> str:
+        # The system message changes the meaning of a request, so cache entries
+        # must be isolated by it as well as by the user prompt and model.
+        return f"{model}:{hash((system_prompt or '', prompt))}"
 
     def _check_cache(self, key: str) -> Optional[Any]:
         if key in self._cache:
@@ -46,13 +48,19 @@ class GroqAdapter(LLMAdapter):
     def _set_cache(self, key: str, val: Any) -> None:
         self._cache[key] = (time.time(), val)
 
-    async def _call_groq_api(self, prompt: str, model: str, json_mode: bool = False) -> str:
+    async def _call_groq_api(
+        self,
+        prompt: str,
+        model: str,
+        json_mode: bool = False,
+        system_prompt: Optional[str] = None,
+    ) -> str:
         """Call Groq REST API with exponential backoff and rate limit handling."""
         if not self.api_key:
             print("[GroqAdapter] GROQ_API_KEY is empty. Triggering graceful degradation.")
             raise ValueError("No Groq API Key provided")
 
-        cache_key = self._get_cache_key(prompt, model)
+        cache_key = self._get_cache_key(prompt, model, system_prompt)
         cached = self._check_cache(cache_key)
         if cached is not None:
             return cached
@@ -63,7 +71,7 @@ class GroqAdapter(LLMAdapter):
         }
 
         messages = [
-            {"role": "system", "content": "You are NEXUS, an expert AI assistant for MindGigs. Respond concisely and strictly format responses as requested."},
+            {"role": "system", "content": system_prompt or "You are NEXUS, an expert AI assistant for MindGigs. Respond concisely and strictly format responses as requested."},
             {"role": "user", "content": prompt}
         ]
 
@@ -112,9 +120,13 @@ class GroqAdapter(LLMAdapter):
 
     async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         """Generate response using Groq reasoning model with system prompt support."""
-        full_prompt = f"System: {system_prompt}\n\nUser: {prompt}" if system_prompt else prompt
         try:
-            return await self._call_groq_api(full_prompt, model=self.reasoning_model, json_mode=False)
+            return await self._call_groq_api(
+                prompt,
+                model=self.reasoning_model,
+                json_mode=False,
+                system_prompt=system_prompt,
+            )
         except Exception as e:
             print(f"⚠️ [GroqAdapter] Response generation fallback: {e}")
             return "I am experiencing temporary connection issues with the AI service. How else can I assist you?"

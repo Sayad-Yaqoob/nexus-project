@@ -77,8 +77,8 @@ export const FloatingBubble: React.FC = () => {
 
   return (
     <>
-      {/* Draggable Floating Button */}
-      {pos.x >= 0 && (
+      {/* Draggable Floating Button (hidden when drawer is open) */}
+      {!isOpen && pos.x >= 0 && (
         <div
           ref={bubbleRef}
           onMouseDown={handleMouseDown}
@@ -97,7 +97,10 @@ export const FloatingBubble: React.FC = () => {
 
       {/* Slide-out Panel overlay */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+        <div 
+          onClick={() => setIsOpen(false)}
+          className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
+        >
           <div
             className="w-80 bg-[#0B1320] border-l border-[#1E293B] h-full p-6 flex flex-col justify-between shadow-2xl animate-in slide-in-from-right duration-300"
             onClick={(e) => e.stopPropagation()}

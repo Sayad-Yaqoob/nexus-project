@@ -7,7 +7,7 @@ import { sendAgentMessage } from '@/lib/api';
 import { AgentMessage, OfferingDraft, ExpertMatch } from '@/lib/types';
 import FileUploader from '../FileUploader';
 import { 
-  Sparkles, X, Send, Bot, User as UserIcon, RefreshCw, ChevronRight, AlertCircle, CheckCircle2, Edit3, ShieldCheck, Tag, DollarSign
+  Sparkles, X, Send, Bot, User as UserIcon, RefreshCw, ChevronRight, AlertCircle, CheckCircle2, Edit3, ShieldCheck, Tag, DollarSign, Mic, MicOff
 } from 'lucide-react';
 
 interface NexusDrawerProps {
@@ -25,6 +25,83 @@ export const NexusDrawer: React.FC<NexusDrawerProps> = ({ isOpen, onClose }) => 
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const speechPrefixRef = useRef('');
+
+  const toggleListening = () => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) {}
+      }
+      return;
+    }
+
+    const SpeechRecognition = typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    if (!SpeechRecognition) {
+      setError('Speech recognition is not supported in this browser. Please use Google Chrome, Microsoft Edge, or Apple Safari.');
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      // Capture a single dictated message; this control does not start a
+      // conversational voice session.
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      recognition.lang = 'en-US';
+      speechPrefixRef.current = inputMessage.trim();
+
+      recognition.onstart = () => {
+        setError(null);
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join('')
+          .trim();
+        if (transcript.trim()) {
+          setInputMessage([speechPrefixRef.current, transcript].filter(Boolean).join(' '));
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn('Speech recognition notice:', event.error);
+        if (event.error === 'not-allowed') {
+          setError('Microphone permission denied. Please enable microphone access in your browser settings.');
+        } else if (event.error !== 'no-speech') {
+          setError(`Speech recognition notice: ${event.error}`);
+        }
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        recognitionRef.current = null;
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err: any) {
+      console.error('Failed to start speech recognition:', err);
+      setError('Could not access microphone for speech recognition.');
+      setIsListening(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      try { recognitionRef.current?.abort(); } catch (e) {}
+    }
+  }, [isOpen]);
+
+  useEffect(() => () => {
+    try { recognitionRef.current?.abort(); } catch (e) {}
+  }, []);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -36,25 +113,29 @@ export const NexusDrawer: React.FC<NexusDrawerProps> = ({ isOpen, onClose }) => 
   }, [messages, loading]);
 
   useEffect(() => {
-    if (isOpen && messages.length === 0 && user) {
+    if (isOpen && user) {
       const isExpertPerspective = perspective === 'expert';
       const welcomeText = isExpertPerspective
         ? `Hello ${user.full_name}! I am NEXUS, your intelligent operating assistant for MindGigs. Tell me what you'd like to do (e.g. create a subscription, publish a book, edit profile, view incoming bookings, check earnings).`
         : `Welcome ${user.full_name}! I am NEXUS, your MindGigs assistant. Ask me to find verified experts, view your bookings, or navigate anywhere on the platform.`;
 
-      setMessages([
-        {
+      const welcomeMessage: AgentMessage = {
           id: 'welcome',
           role: 'assistant',
           content: welcomeText,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           suggested_actions: isExpertPerspective
-            ? ['Create a 1:1 Session', 'Create a Subscription', 'Publish a Book', 'View Incoming Bookings']
-            : ['Find AI Experts', 'View My Bookings', 'Explore Marketplace']
-        }
-      ]);
+            ? ['Create a 1:1 Consultation Session for $300 (60 min)', 'Draft a Weekly Subscriber Newsletter Broadcast', 'Publish a Book or Digital PDF Product', 'Check My Verified Earnings & Payout Status']
+            : ['Find an AI & Machine Learning Expert for My Project', 'Search Growth & Marketing Strategists for Launch', 'View My Scheduled Bookings & Sessions', 'Explore Verified Experts Across All Categories']
+      };
+
+      setMessages(current =>
+        current.length === 0 || (current.length === 1 && current[0].id === 'welcome')
+          ? [welcomeMessage]
+          : current
+      );
     }
-  }, [isOpen, user, perspective, messages.length]);
+  }, [isOpen, user, perspective]);
 
   if (!isOpen) return null;
 
@@ -258,12 +339,66 @@ export const NexusDrawer: React.FC<NexusDrawerProps> = ({ isOpen, onClose }) => 
                                 <label className="text-[10px] text-slate-400 font-medium">Price ($ USD)</label>
                                 <input
                                   type="text"
-                                  defaultValue={String(msg.draft.price || 0)}
+                                  defaultValue={String(msg.draft.price !== undefined && msg.draft.price !== null ? msg.draft.price : 'N/A')}
                                   readOnly
                                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-bold"
                                 />
                               </div>
                             </div>
+
+                            {/* 1:1 Session specifics */}
+                            {msg.draft.offer_type === '1:1 Session' && (
+                              <div className="grid grid-cols-2 gap-2 pt-1">
+                                <div>
+                                  <label className="text-[10px] text-slate-400 font-medium">Session Duration</label>
+                                  <input
+                                    type="text"
+                                    defaultValue={String(msg.draft.duration || '60 min')}
+                                    readOnly
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-300 font-medium"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-slate-400 font-medium">Available Hours</label>
+                                  <input
+                                    type="text"
+                                    defaultValue={msg.draft.availability ? `${msg.draft.availability.start || '09:00 AM'} - ${msg.draft.availability.end || '05:00 PM'}` : '09:00 AM - 05:00 PM'}
+                                    readOnly
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[#00C49F] font-mono text-[10px]"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Newsletter specifics */}
+                            {msg.draft.offer_type === 'Newsletter' && (
+                              <div className="pt-1 space-y-1.5">
+                                <div>
+                                  <label className="text-[10px] text-slate-400 font-medium">Target Audience</label>
+                                  <input
+                                    type="text"
+                                    defaultValue={String(msg.draft.target_audience || 'Subscribers')}
+                                    readOnly
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-purple-300"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Custom Offer specifics */}
+                            {msg.draft.offer_type === 'Custom Offer' && (
+                              <div className="pt-1 space-y-1.5">
+                                <div>
+                                  <label className="text-[10px] text-slate-400 font-medium">Timeline</label>
+                                  <input
+                                    type="text"
+                                    defaultValue={String(msg.draft.delivery_timeline || '3-5 business days')}
+                                    readOnly
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-blue-300"
+                                  />
+                                </div>
+                              </div>
+                            )}
 
                             {/* File Upload Control for Book / Digital Product */}
                             {(msg.draft.offer_type === 'Book' || msg.draft.offer_type === 'Digital Product' || msg.draft.file_required) && (
@@ -386,25 +521,51 @@ export const NexusDrawer: React.FC<NexusDrawerProps> = ({ isOpen, onClose }) => 
             }}
             className="relative flex items-center"
           >
+            {isListening && (
+              <div className="absolute -top-9 left-2 px-3 py-1 bg-red-600 text-white rounded-full text-[10px] font-bold flex items-center gap-1.5 shadow-md animate-bounce z-10 border border-red-400">
+                <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                <span>Listening... Speak now</span>
+              </div>
+            )}
+
             <input
               type="text"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Ask NEXUS to perform an action or navigate..."
+              placeholder={isListening ? 'Listening to voice...' : 'Ask NEXUS to perform an action or navigate...'}
               disabled={loading}
-              className="w-full bg-[#112233] border border-slate-700/80 rounded-xl pl-3.5 pr-10 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-[#00C49F]"
+              className={`w-full bg-[#112233] border rounded-xl pl-3.5 pr-18 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none ${
+                isListening ? 'border-red-500 ring-1 ring-red-400' : 'border-slate-700/80 focus:border-[#00C49F]'
+              }`}
             />
-            <button
-              type="submit"
-              disabled={loading || !inputMessage.trim()}
-              className="absolute right-1.5 p-1.5 rounded-lg bg-[#00C49F] text-slate-950 hover:bg-[#00B08E] disabled:opacity-40 transition-all font-bold"
-            >
-              <Send className="w-3.5 h-3.5" />
-            </button>
+
+            <div className="absolute right-1.5 flex items-center gap-1">
+              <button
+                type="button"
+                onClick={toggleListening}
+                disabled={loading}
+                title={isListening ? 'Stop listening' : 'Speak to NEXUS'}
+                className={`p-1.5 rounded-lg transition-all font-bold ${
+                  isListening
+                    ? 'bg-red-500 text-white animate-pulse'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                }`}
+              >
+                {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+              </button>
+
+              <button
+                type="submit"
+                disabled={loading || !inputMessage.trim()}
+                className="p-1.5 rounded-lg bg-[#00C49F] text-slate-950 hover:bg-[#00B08E] disabled:opacity-40 transition-all font-bold"
+                title="Send message"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </form>
         </div>
       </div>
     </div>
   );
 };
-

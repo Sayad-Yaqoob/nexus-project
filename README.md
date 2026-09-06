@@ -16,33 +16,38 @@ Today, a top consultant wastes 30–40% of their billable hours on the wrong con
 
 - **For Clients**: NEXUS performs semantic vector search against verified expert profiles. Instead of keyword matching, it understands the actual problem the client is trying to solve, ranks experts by relevance, and explains *why* each expert is the right fit — in one sentence.
 
----
-
 ## What Is NEXUS?
 
-**NEXUS** is the agentic operating layer embedded inside mindGigs. It is not a chatbot bolted on top of a form. It is the primary interface for platform operations — a state-aware agent that:
+**NEXUS** comes from the Latin root meaning *"a connection, focal point, or central link binding multiple complex elements together"*. 
 
-1. **Understands intent** — Classifies free-form text into precise operational actions (create offering, search experts, view earnings, navigate to screen, etc.)
-2. **Executes against real data** — Every action results in a verified SQLite database write, not a simulated response
-3. **Enforces authorization** — Role-based permissions are enforced on the backend; a client account physically cannot invoke expert-only operations
-4. **Maintains conversation context** — Session state is persisted across turns, enabling multi-turn confirmation flows
+In **mindGigs**, NEXUS acts as the **neural operating bridge** connecting Creators/Experts with Clients/Fans. It is not a surface-level chatbot bolted on top of forms. NEXUS is an autonomous, state-aware agentic operating layer that executes domain-confined decisions across the marketplace:
+
+### Decision-Making Architecture & Capabilities
+
+1. **Autonomous Intent Classification & Task Disambiguation** — Classifies user prompts into precise operational intents (`OFFERING_CREATE`, `CLIENT_MATCH_SEARCH`, `NEWSLETTER_CREATE`, `EARNINGS_INQUIRY`, `BOOKINGS_INQUIRY`, `NAVIGATION`, `GENERAL_CHAT`). It intelligently distinguishes between general strategy questions (*"should I launch a product?"*) vs. explicit creation commands (*"create a 1:1 session for $300"*), ensuring clean task switching without stuck clarification loops.
+2. **Role-Aware Context & Guardrails** — Enforces strict role confinement. Expert accounts unlock offering creation, earnings metrics, and schedule management; Client accounts access semantic expert discovery, profile previews, and video session booking.
+3. **Structured Entity & Variable Parsing** — Captures all required parameters for offerings without cluttering description fields:
+   - **1:1 Sessions**: Available hours (`09:00 AM - 05:00 PM`), session duration (`60 min`), weekly availability days (`Monday, Wednesday, Friday`), price, title, description.
+   - **Newsletters**: Target audience, subject line, content draft summary.
+   - **Custom Offerings**: Delivery timeline, project scope, custom pricing.
+4. **FAISS Semantic Vector Discovery** — Performs real mathematical vector search over expert bio embeddings (`all-MiniLM-L6-v2`) and generates grounded, single-sentence explanations for *why* an expert is suited to solve the client's exact problem.
+5. **Verified Database Execution** — Every confirmed action (offering publication, booking creation, profile edit) writes directly to SQLite (`nexus.db`), guaranteeing zero raw JSON leaks or hallucinated state.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                        mindGigs                         │
 │  ┌────────────────┐          ┌────────────────────────┐ │
 │  │   Client Side  │          │     Expert Side        │ │
+│  │                │  NEXUS   │                        │ │
+│  │  "Find me an   │  Neural  │  "Create a 1:1 session │ │
+│  │  AI expert for │  Bridge  │  for $300 on LLM       │ │
+│  │  RAG systems"  │◄────────►│  architecture"         │ │
 │  │                │          │                        │ │
-│  │  "Find me an   │  NEXUS   │  "Create a 1:1 session │ │
-│  │  AI expert for │◄────────►│  for $300 on LLM       │ │
-│  │  RAG systems"  │  Agent   │  architecture"         │ │
-│  │                │  Layer   │                        │ │
-│  │  → Semantic    │          │  → Intent classified   │ │
-│  │    vector      │          │  → Draft shown for     │ │
-│  │    search      │          │    confirmation        │ │
-│  │  → Ranked      │          │  → DB write verified   │ │
+│  │  → Semantic    │  Agent   │  → Intent classified   │ │
+│  │    vector      │  Engine  │  → Form Preview card   │ │
+│  │    search      │          │    with hours/duration │ │
+│  │  → Ranked      │          │  → Verified DB write   │ │
 │  │    matches     │          │  → FAISS re-indexed    │ │
-│  │  → LLM why     │          │                        │ │
 │  └────────────────┘          └────────────────────────┘ │
 │                                                         │
 │            SQLite Database ← FAISS Vector Index         │

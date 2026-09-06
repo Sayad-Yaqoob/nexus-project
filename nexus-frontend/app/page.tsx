@@ -26,9 +26,9 @@ export default function LandingPage() {
           </div>
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
-            <Link href="#experts" className="hover:text-[#00C49F] transition-colors">Book an Expert</Link>
-            <Link href="#monetize" className="hover:text-[#00C49F] transition-colors">Become an Expert</Link>
-            <Link href="#how-it-works" className="hover:text-[#00C49F] transition-colors">How It Works</Link>
+            <Link href="/login?role=client" className="hover:text-[#00C49F] transition-colors">Book an Expert</Link>
+            <Link href="/login?role=expert" className="hover:text-[#00C49F] transition-colors">Become an Expert</Link>
+            <Link href="#experts" className="hover:text-[#00C49F] transition-colors">How It Works</Link>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -39,7 +39,7 @@ export default function LandingPage() {
               Log In
             </Link>
             <Link
-              href="/overview"
+              href="/login"
               className="px-5 py-2.5 rounded-xl bg-[#00C49F] hover:bg-[#00B08E] text-slate-950 font-bold text-sm transition-all shadow-sm flex items-center gap-2"
             >
               Enter Application <ArrowRight className="w-4 h-4" />
