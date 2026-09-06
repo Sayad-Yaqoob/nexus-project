@@ -11,6 +11,7 @@ class NexusIntent(str, Enum):
     CUSTOM_OFFERING_CREATE = "custom_offering_create"
     EARNINGS_INQUIRY = "earnings_inquiry"
     BOOKINGS_INQUIRY = "bookings_inquiry"
+    EXPERT_AVAILABILITY_SET = "expert_availability_set"
 
     # Client-oriented intents
     CLIENT_MATCH_SEARCH = "client_match_search"
@@ -30,6 +31,7 @@ INTENT_DESCRIPTIONS: Dict[str, str] = {
     NexusIntent.OFFERING_EDIT: "Updating pricing, title, or description of existing offerings",
     NexusIntent.EARNINGS_INQUIRY: "Checking earnings, payouts, revenue, or financial reports",
     NexusIntent.BOOKINGS_INQUIRY: "Viewing scheduled client appointments, calendar, or upcoming bookings",
+    NexusIntent.EXPERT_AVAILABILITY_SET: "Setting or updating an expert's weekly availability days and hours",
 
     NexusIntent.CLIENT_MATCH_SEARCH: "Searching or asking for expert recommendations for a project/need",
     NexusIntent.EXPERT_DISCOVERY: "Browsing categories or asking about top experts in a domain",
@@ -50,6 +52,7 @@ SUGGESTED_ACTIONS_BY_INTENT: Dict[str, List[str]] = {
     NexusIntent.CUSTOM_OFFERING_CREATE: ["Set Custom Project Scope", "Define Delivery Timeline", "Specify Project Rate"],
     NexusIntent.EARNINGS_INQUIRY: ["View Net Earnings (70%)", "Check Payout Threshold", "View Incoming Bookings"],
     NexusIntent.BOOKINGS_INQUIRY: ["View Incoming Schedule", "Set Weekly Hours (9 AM - 5 PM)", "Check Booking Notes"],
+    NexusIntent.EXPERT_AVAILABILITY_SET: ["Set Monday-Friday, 9 AM-5 PM", "View My Availability", "Update Timezone"],
 
     NexusIntent.CLIENT_MATCH_SEARCH: ["Find AI & LLM Experts", "Search Growth Marketers", "Find CFO Advisory Experts"],
     NexusIntent.EXPERT_DISCOVERY: ["Browse Top Categories", "Search Verified Experts", "View Expert Profiles"],

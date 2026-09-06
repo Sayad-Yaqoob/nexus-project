@@ -10,7 +10,7 @@ router = APIRouter()
 
 class AgentChatRequest(BaseModel):
     # Large enough for detailed briefs, while keeping LLM requests bounded.
-    message: str = Field(min_length=1, max_length=12000)
+    message: str = Field(min_length=2, max_length=12000)
     session_id: Optional[str] = None
     agent_context: Optional[Dict[str, Any]] = None
     current_route: Optional[str] = None

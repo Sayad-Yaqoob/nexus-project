@@ -73,3 +73,33 @@ def test_multiturn_agent_session():
     assert turn2.status_code == 200
     assert turn2.json()["session_id"] == sess_id
     assert len(turn2.json()["conversation_history"]) >= 4
+
+def test_expert_availability_is_profile_workflow_not_onboarding():
+    auth_resp = client.post("/api/v1/auth/mimic", json={"role": "expert"})
+    token = auth_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    preview = client.post(
+        "/api/v1/agent/chat",
+        headers=headers,
+        json={"message": "Set Weekly Availability Hours (Mon-Fri, 9 AM - 5 PM)"},
+    )
+    assert preview.status_code == 200
+    preview_data = preview.json()
+    assert preview_data["intent"] == "expert_availability_set"
+    assert preview_data["response_type"] == "action_preview"
+    assert preview_data["draft"]["weekly_hours"]["days"] == [
+        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"
+    ]
+    assert preview_data["draft"]["weekly_hours"]["start"] == "9 AM"
+    assert preview_data["draft"]["weekly_hours"]["end"] == "5 PM"
+
+    saved = client.post(
+        "/api/v1/agent/chat",
+        headers=headers,
+        json={"message": "Confirm Availability", "session_id": preview_data["session_id"]},
+    )
+    assert saved.status_code == 200
+    saved_data = saved.json()
+    assert saved_data["response_type"] == "action_success"
+    assert saved_data["action_result"]["weekly_hours"]["days"] == preview_data["draft"]["weekly_hours"]["days"]

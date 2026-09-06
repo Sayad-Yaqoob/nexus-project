@@ -12,7 +12,8 @@ from agent.offering import (
     merge_draft,
     OfferingDraft,
     resolve_offering_type,
-    parse_price
+    parse_price,
+    parse_availability
 )
 
 
@@ -147,6 +148,9 @@ async def node_classify_intent(state: NexusState) -> Dict[str, Any]:
     if pending_act == "update_offering" and any(k in msg_lower for k in ["confirm", "yes", "update", "do it", "approve"]):
         return {"intent": NexusIntent.OFFERING_EDIT}
 
+    if pending_act == "save_availability" and any(k in msg_lower for k in ["confirm", "yes", "save", "update", "do it", "approve"]):
+        return {"intent": NexusIntent.EXPERT_AVAILABILITY_SET}
+
     # 5. Explicit Search Expert Intent (Client matching)
     search_triggers = [
         r"\bfind an expert\b", r"\bsearch for expert\b", r"\bhire an expert\b", r"\blooking for an expert\b",
@@ -157,7 +161,12 @@ async def node_classify_intent(state: NexusState) -> Dict[str, Any]:
     if any(re.search(pat, msg_lower) for pat in search_triggers):
         return {"intent": NexusIntent.CLIENT_MATCH_SEARCH}
 
-    # 6. Explicit Offering & Newsletter Creation Intent
+    # 6. Availability must be handled before offering/profile fallbacks.
+    availability_triggers = ["availability", "available hours", "weekly hours", "working hours", "hours and days", "set hours", "set my hours"]
+    if any(k in msg_lower for k in availability_triggers):
+        return {"intent": NexusIntent.EXPERT_AVAILABILITY_SET}
+
+    # 7. Explicit Offering & Newsletter Creation Intent
     offering_items = ["book", "subscription", "digital product", "session", "1:1", "newsletter", "custom offer", "consultation"]
     creation_verbs = ["create a", "create new", "publish a", "publish new", "sell a", "sell my", "add a", "add new", "offer a", "draft a", "launch a"]
     
@@ -430,6 +439,58 @@ async def node_offering_edit(state: NexusState) -> Dict[str, Any]:
         "requires_confirmation": True,
         "confirmation_action": "update_offering",
         "suggested_actions": ["Confirm Update", "Cancel"]
+    }
+
+
+async def node_expert_availability(state: NexusState) -> Dict[str, Any]:
+    """Preview and save an expert's recurring weekly availability."""
+    if state.get("role") != "expert":
+        return {
+            "response_text": normalize_response_text("Weekly availability can only be managed from an Expert account. Create or activate your expert profile first."),
+            "response_type": "error",
+            "suggested_actions": ["Create Expert Profile", "Find Experts"]
+        }
+
+    data_adapter = get_data_adapter()
+    user_id = state.get("user_id", 1)
+    profile = await data_adapter.get_expert_profile(str(user_id))
+    if not profile:
+        return {
+            "response_text": normalize_response_text("Your Expert profile is not active yet. Complete and publish your profile before setting availability hours."),
+            "response_type": "error",
+            "suggested_actions": ["Create Expert Profile", "Open Expert Studio"]
+        }
+
+    pending = state.get("pending_action") or {}
+    message = state.get("message", "")
+    is_confirmation = pending.get("action") == "save_availability" and any(
+        k in message.lower() for k in ["confirm", "yes", "save", "update", "do it", "approve"]
+    )
+    schedule = pending.get("availability") if is_confirmation else parse_availability(message).model_dump()
+
+    if is_confirmation:
+        profile.weekly_hours = schedule
+        await data_adapter.save_expert_profile(str(user_id), profile)
+        days = ", ".join(schedule["days"])
+        return {
+            "response_text": normalize_response_text(f"Your weekly availability is saved for {days}, {schedule['start']} to {schedule['end']} ({profile.timezone})."),
+            "response_type": "action_success",
+            "action_result": {"weekly_hours": schedule},
+            "pending_action": {},
+            "requires_confirmation": False,
+            "confirmation_action": None,
+            "suggested_actions": ["View My Availability", "Create a 1:1 Session", "Update Weekly Hours"]
+        }
+
+    days = ", ".join(schedule["days"])
+    return {
+        "response_text": normalize_response_text(f"I found your weekly availability: {days}, {schedule['start']} to {schedule['end']} ({profile.timezone}). Confirm to save these hours to your Expert profile."),
+        "response_type": "action_preview",
+        "draft": {"weekly_hours": schedule, "timezone": profile.timezone},
+        "pending_action": {"action": "save_availability", "user_id": user_id, "availability": schedule},
+        "requires_confirmation": True,
+        "confirmation_action": "save_availability",
+        "suggested_actions": ["Confirm Availability", "Edit Hours", "Cancel"]
     }
 
 

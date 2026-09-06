@@ -38,6 +38,7 @@ class ExpertProfile(BaseModel):
     x_url: Optional[str] = None
     timezone: Optional[str] = "UTC"
     currency: str = "USD"
+    weekly_hours: Optional[Dict[str, Any]] = None
     offerings: List[Offering] = Field(default_factory=list)
 
 

@@ -142,7 +142,7 @@ def parse_availability(text: str) -> Availability:
         "sunday": "Sunday", "sun": "Sunday",
     }
     
-    if "weekday" in lowered:
+    if "weekday" in lowered or re.search(r"\b(?:mon|monday)\s*[-–]\s*(?:fri|friday)\b", lowered):
         days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
     elif "weekend" in lowered:
         days = ["Saturday", "Sunday"]

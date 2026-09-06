@@ -12,6 +12,7 @@ from agent.nodes import (
     node_client_search,
     node_earnings_inquiry,
     node_bookings_inquiry,
+    node_expert_availability,
     node_navigation,
     node_persist_session
 )
@@ -30,6 +31,8 @@ def route_by_intent(state: NexusState) -> str:
         return "earnings_inquiry"
     elif intent in [NexusIntent.BOOKINGS_INQUIRY, NexusIntent.BOOKING_REQUEST]:
         return "bookings_inquiry"
+    elif intent == NexusIntent.EXPERT_AVAILABILITY_SET:
+        return "expert_availability"
     elif intent == "navigation":
         return "navigation"
     return "respond"
@@ -49,6 +52,7 @@ def build_nexus_graph():
     workflow.add_node("client_search", node_client_search)
     workflow.add_node("earnings_inquiry", node_earnings_inquiry)
     workflow.add_node("bookings_inquiry", node_bookings_inquiry)
+    workflow.add_node("expert_availability", node_expert_availability)
     workflow.add_node("navigation", node_navigation)
     workflow.add_node("respond", node_respond)
     workflow.add_node("persist_session", node_persist_session)
@@ -66,6 +70,7 @@ def build_nexus_graph():
             "client_search": "client_search",
             "earnings_inquiry": "earnings_inquiry",
             "bookings_inquiry": "bookings_inquiry",
+            "expert_availability": "expert_availability",
             "navigation": "navigation",
             "respond": "respond",
         },
@@ -76,6 +81,7 @@ def build_nexus_graph():
     workflow.add_edge("client_search", "persist_session")
     workflow.add_edge("earnings_inquiry", "persist_session")
     workflow.add_edge("bookings_inquiry", "persist_session")
+    workflow.add_edge("expert_availability", "persist_session")
     workflow.add_edge("navigation", "persist_session")
     workflow.add_edge("respond", "persist_session")
     workflow.add_edge("persist_session", END)

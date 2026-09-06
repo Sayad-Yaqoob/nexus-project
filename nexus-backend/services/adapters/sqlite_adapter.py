@@ -124,6 +124,7 @@ class SQLiteDataAdapter(DataAdapter):
                         is_verified=profile.is_verified,
                         timezone=profile.timezone or "UTC",
                         currency=profile.currency or "USD",
+                        weekly_hours=json.loads(profile.weekly_hours_json) if profile.weekly_hours_json else None,
                         offerings=[
                             Offering(
                                 id=o.id,
@@ -154,6 +155,8 @@ class SQLiteDataAdapter(DataAdapter):
                     db_prof.bio = profile.bio
                     db_prof.category = profile.category
                     db_prof.expertise_tags = tags_str
+                    if profile.weekly_hours is not None:
+                        db_prof.weekly_hours_json = json.dumps(profile.weekly_hours)
                 else:
                     db_prof = DBExpertProfile(
                         user_id=u_id,
@@ -161,7 +164,8 @@ class SQLiteDataAdapter(DataAdapter):
                         bio=profile.bio,
                         category=profile.category,
                         expertise_tags=tags_str,
-                        is_verified=True
+                        is_verified=True,
+                        weekly_hours_json=json.dumps(profile.weekly_hours) if profile.weekly_hours is not None else None
                     )
                 # Upgrade user role to expert in DB if currently client
                 db_user = await session.get(DBUser, u_id)
@@ -205,6 +209,7 @@ class SQLiteDataAdapter(DataAdapter):
                         is_verified=db_p.is_verified,
                         timezone=db_p.timezone or "UTC",
                         currency=db_p.currency or "USD",
+                        weekly_hours=json.loads(db_p.weekly_hours_json) if db_p.weekly_hours_json else None,
                         offerings=[
                             Offering(
                                 id=o.id,
