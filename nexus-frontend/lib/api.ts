@@ -1,6 +1,9 @@
 import { User, AgentChatResponse, TokenResponse } from './types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL 
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1` 
+  : 'http://localhost:8000/api/v1';
 const TOKEN_KEY = 'nexus_access_token';
 
 export function getStoredToken(): string | null {
@@ -24,6 +27,7 @@ function getAuthHeaders(): HeadersInit {
   const token = getStoredToken();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true', // <-- CRUCIAL FOR FREE NGROK
   };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -34,7 +38,10 @@ function getAuthHeaders(): HeadersInit {
 export async function mimicAuth(role?: 'expert' | 'client', user_id?: number): Promise<TokenResponse> {
   const res = await fetch(`${API_BASE}/auth/mimic`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true' // <-- ADD HERE TOO
+    },
     body: JSON.stringify({ role, user_id }),
   });
 
